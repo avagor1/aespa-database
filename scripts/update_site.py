@@ -259,19 +259,34 @@ def parse_js_source_map(raw: str) -> dict[str, list[str]]:
     body = raw.strip()
     if body.startswith("{") and body.endswith("}"):
         body = body[1:-1]
+    # Accept both "double" and 'single' quoted JS string literals for each field,
+    # since a hand-edited entry in the site's source map can use either.
+    str_re = r'(?:"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\')'
     pair_re = re.compile(
-        r'([A-Za-z_$][\w$]*)\s*:\s*\[\s*("(?:\\.|[^"\\])*")\s*,\s*("(?:\\.|[^"\\])*")\s*\]'
+        r'([A-Za-z_$][\w$]*)\s*:\s*\[\s*(' + str_re + r')\s*,\s*(' + str_re + r')\s*\]'
     )
+
+    def _to_json_string(js_string: str) -> str:
+        if js_string.startswith("'"):
+            inner = js_string[1:-1].replace('\\"', '"')
+            inner = re.sub(r"\\'", "'", inner)
+            return json.dumps(inner, ensure_ascii=False)
+        return js_string
+
     out: dict[str, list[str]] = {}
+    skipped = 0
     for m in pair_re.finditer(body):
         try:
-            label = json.loads(m.group(2))
-            url = json.loads(m.group(3))
-        except json.JSONDecodeError as exc:
-            raise RuntimeError(f"Invalid source-map string: {m.group(0)}") from exc
+            label = json.loads(_to_json_string(m.group(2)))
+            url = json.loads(_to_json_string(m.group(3)))
+        except json.JSONDecodeError:
+            skipped += 1
+            continue
         out[m.group(1)] = [label, url]
     if not out:
-        raise RuntimeError("Could not parse the JavaScript source map.")
+        raise RuntimeError(
+            f"Could not parse the JavaScript source map ({skipped} malformed entries skipped, {len(body)} chars)."
+        )
     return out
 
 
@@ -1044,75 +1059,101 @@ def main() -> None:
             report["source_status"][key] = "error"
             report["errors"].append({"source": key, "error": str(exc)})
 
+    # Each section below is wrapped in try/except: one broken section (a data
+    # format change on a source, a malformed block) must not stop the others
+    # from being applied, and must not stop index.html from being written at
+    # the end with whatever DID succeed. A failure is recorded in
+    # report["errors"] instead of raising, so a bad day is visible in the
+    # automation report rather than silently skipping the entire run.
+
     # News
-    jp_news = parse_jp_news(raw["jp_news"]) if "jp_news" in raw else []
-    report["candidates"]["news"] = len(jp_news)
-    if not args.dry_run and jp_news:
-        html, n = update_news(html, jp_news)
-    else:
+    jp_news = []
+    try:
+        jp_news = parse_jp_news(raw["jp_news"]) if "jp_news" in raw else []
+        report["candidates"]["news"] = len(jp_news)
         n = 0
-    report["applied"]["news_added"] = n
+        if not args.dry_run and jp_news:
+            html, n = update_news(html, jp_news)
+        report["applied"]["news_added"] = n
+    except Exception as exc:
+        report["errors"].append({"source": "news_update", "error": str(exc)})
+        report["applied"]["news_added"] = 0
 
     # MVs
-    yt = parse_youtube_feed(raw["youtube_feed"]) if "youtube_feed" in raw else []
-    mv_candidates = [x for x in yt if x["likely_mv"]]
-    report["candidates"]["mvs"] = len(mv_candidates)
-    if not args.dry_run and mv_candidates:
-        html, n = update_mvs(html, mv_candidates)
-    else:
+    try:
+        yt = parse_youtube_feed(raw["youtube_feed"]) if "youtube_feed" in raw else []
+        mv_candidates = [x for x in yt if x["likely_mv"]]
+        report["candidates"]["mvs"] = len(mv_candidates)
         n = 0
-    report["applied"]["mvs_added"] = n
+        if not args.dry_run and mv_candidates:
+            html, n = update_mvs(html, mv_candidates)
+        report["applied"]["mvs_added"] = n
+    except Exception as exc:
+        report["errors"].append({"source": "mvs_update", "error": str(exc)})
+        report["applied"]["mvs_added"] = 0
 
     # Music: only releases that are really new, validated, with a clean title.
-    new_music: list[dict] = []
-    if "jp_discography" in raw:
-        known = known_music_keys(html)
-        releases, disc_errors = discover_release_details(raw["jp_discography"], known)
-        report["errors"].extend(disc_errors)
-        new_music, skipped_music = select_new_music(html, releases, args.music_max_age_days)
-        report["skipped"]["music"] = skipped_music
-    report["candidates"]["music_releases"] = len(new_music)
-    if not args.dry_run and new_music:
-        html, n = update_music(html, new_music)
-        report["added_titles"]["music"] = [r["title"] for r in new_music]
-    else:
+    try:
+        new_music: list[dict] = []
+        if "jp_discography" in raw:
+            known = known_music_keys(html)
+            releases, disc_errors = discover_release_details(raw["jp_discography"], known)
+            report["errors"].extend(disc_errors)
+            new_music, skipped_music = select_new_music(html, releases, args.music_max_age_days)
+            report["skipped"]["music"] = skipped_music
+        report["candidates"]["music_releases"] = len(new_music)
         n = 0
-    report["applied"]["music_releases_added"] = n
+        if not args.dry_run and new_music:
+            html, n = update_music(html, new_music)
+            report["added_titles"]["music"] = [r["title"] for r in new_music]
+        report["applied"]["music_releases_added"] = n
+    except Exception as exc:
+        report["errors"].append({"source": "music_update", "error": str(exc)})
+        report["applied"]["music_releases_added"] = 0
 
     # Calendar: combine Weverse tour notices with clearly dated official Japan schedule entries.
-    tour = parse_weverse_tour(raw["weverse"]) if "weverse" in raw else []
-    jp_schedule = parse_jp_schedule(raw["jp_schedule"]) if "jp_schedule" in raw else []
-    calendar_candidates = tour + [x for x in jp_schedule if x.get("title")]
-    report["candidates"]["calendar"] = len(calendar_candidates)
-    if not args.dry_run and calendar_candidates:
-        html, n = update_calendar(html, calendar_candidates)
-    else:
+    try:
+        tour = parse_weverse_tour(raw["weverse"]) if "weverse" in raw else []
+        jp_schedule = parse_jp_schedule(raw["jp_schedule"]) if "jp_schedule" in raw else []
+        calendar_candidates = tour + [x for x in jp_schedule if x.get("title")]
+        report["candidates"]["calendar"] = len(calendar_candidates)
         n = 0
-    report["applied"]["calendar_events_added"] = n
+        if not args.dry_run and calendar_candidates:
+            html, n = update_calendar(html, calendar_candidates)
+        report["applied"]["calendar_events_added"] = n
+    except Exception as exc:
+        report["errors"].append({"source": "calendar_update", "error": str(exc)})
+        report["applied"]["calendar_events_added"] = 0
 
     # Fashion from clearly fashion-related official Japan news.
-    fashion = [x for x in jp_news if fashion_candidate(x["title"])]
-    report["candidates"]["fashion"] = len(fashion)
-    if not args.dry_run and fashion:
-        html, n = update_fashion(html, fashion)
-    else:
+    try:
+        fashion = [x for x in jp_news if fashion_candidate(x["title"])]
+        report["candidates"]["fashion"] = len(fashion)
         n = 0
-    report["applied"]["fashion_entries_added"] = n
+        if not args.dry_run and fashion:
+            html, n = update_fashion(html, fashion)
+        report["applied"]["fashion_entries_added"] = n
+    except Exception as exc:
+        report["errors"].append({"source": "fashion_update", "error": str(exc)})
+        report["applied"]["fashion_entries_added"] = 0
 
     # Awards: use the Wikimedia raw wikitext endpoint as a structured fallback.
     # This avoids the Action API endpoint that was returning 429 on shared CI runners.
-    awards = []
-    if "awards_wiki_raw" in raw:
-        try:
-            awards = parse_awards_wikitext(json.dumps({"parse": {"wikitext": {"*": raw["awards_wiki_raw"]}}}))
-        except Exception as exc:
-            report["errors"].append({"source": "awards_wiki_raw_parse", "error": str(exc)})
-    report["candidates"]["awards"] = len(awards)
-    if not args.dry_run and awards:
-        html, n = update_awards(html, awards)
-    else:
+    try:
+        awards = []
+        if "awards_wiki_raw" in raw:
+            try:
+                awards = parse_awards_wikitext(json.dumps({"parse": {"wikitext": {"*": raw["awards_wiki_raw"]}}}))
+            except Exception as exc:
+                report["errors"].append({"source": "awards_wiki_raw_parse", "error": str(exc)})
+        report["candidates"]["awards"] = len(awards)
         n = 0
-    report["applied"]["awards_entries_added"] = n
+        if not args.dry_run and awards:
+            html, n = update_awards(html, awards)
+        report["applied"]["awards_entries_added"] = n
+    except Exception as exc:
+        report["errors"].append({"source": "awards_update", "error": str(exc)})
+        report["applied"]["awards_entries_added"] = 0
 
     report["applied"]["index_updated"] = bool(any(report["applied"].values())) and not args.dry_run
 
