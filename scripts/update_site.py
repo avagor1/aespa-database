@@ -259,11 +259,14 @@ def parse_js_source_map(raw: str) -> dict[str, list[str]]:
     body = raw.strip()
     if body.startswith("{") and body.endswith("}"):
         body = body[1:-1]
-    # Accept both "double" and 'single' quoted JS string literals for each field,
-    # since a hand-edited entry in the site's source map can use either.
+    # Accept both the site's original unquoted-key style (nm:[...]) and the
+    # quoted-key JSON style this script itself writes back (js_json produces
+    # "nm":[...]); once a run has rewritten a block, later runs must still be
+    # able to read it back. Also accept both "double" and 'single' quoted
+    # string literals for the label/url fields.
     str_re = r'(?:"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\')'
     pair_re = re.compile(
-        r'([A-Za-z_$][\w$]*)\s*:\s*\[\s*(' + str_re + r')\s*,\s*(' + str_re + r')\s*\]'
+        r'(?:"([A-Za-z_$][\w$]*)"|([A-Za-z_$][\w$]*))\s*:\s*\[\s*(' + str_re + r')\s*,\s*(' + str_re + r')\s*\]'
     )
 
     def _to_json_string(js_string: str) -> str:
@@ -276,13 +279,14 @@ def parse_js_source_map(raw: str) -> dict[str, list[str]]:
     out: dict[str, list[str]] = {}
     skipped = 0
     for m in pair_re.finditer(body):
+        key = m.group(1) or m.group(2)
         try:
-            label = json.loads(_to_json_string(m.group(2)))
-            url = json.loads(_to_json_string(m.group(3)))
+            label = json.loads(_to_json_string(m.group(3)))
+            url = json.loads(_to_json_string(m.group(4)))
         except json.JSONDecodeError:
             skipped += 1
             continue
-        out[m.group(1)] = [label, url]
+        out[key] = [label, url]
     if not out:
         raise RuntimeError(
             f"Could not parse the JavaScript source map ({skipped} malformed entries skipped, {len(body)} chars)."
