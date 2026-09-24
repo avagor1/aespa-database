@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 HTML_FILE = ROOT / "index.html"
 REPORT_FILE = ROOT / "data" / "automation_report.json"
 
-UA = "aespa-database-updater/2.1 (https://github.com/avagor1/aespa-database)"
+UA = "aespa-database-updater/2.2 (https://github.com/avagor1/aespa-database)"
 
 SOURCES = {
     "jp_news": "https://aespa-official.jp/news/",
@@ -34,12 +34,7 @@ def fetch(
     attempts: int = 3,
     timeout: int = 60,
 ) -> str:
-    """Fetch a source with conservative retries and 429 handling.
-
-    GitHub-hosted jobs occasionally hit transient network timeouts, and Wikimedia
-    APIs may respond with 429 rate limits. We retry those transient failures with
-    a small exponential backoff instead of failing the whole daily update.
-    """
+    """Fetch a source directly with retries and conservative rate-limit handling."""
     last_error: Exception | None = None
 
     for attempt in range(1, attempts + 1):
@@ -53,50 +48,81 @@ def fetch(
                 "Pragma": "no-cache",
             },
         )
-
         try:
             with urlopen(req, timeout=timeout) as r:
                 return r.read().decode("utf-8", errors="replace")
-
         except HTTPError as exc:
             last_error = exc
-
-            # Respect Wikimedia/API rate limiting when Retry-After is supplied.
             if exc.code == 429:
                 retry_after = exc.headers.get("Retry-After")
                 try:
                     delay = max(5, min(int(retry_after), 60)) if retry_after else 10 * attempt
                 except (TypeError, ValueError):
                     delay = 10 * attempt
-
                 if attempt < attempts:
                     import time
                     print(f"429 for {url}; retrying in {delay}s (attempt {attempt}/{attempts})")
                     time.sleep(delay)
                     continue
-
-            # Retry temporary server errors as well.
             if exc.code in {500, 502, 503, 504} and attempt < attempts:
                 import time
                 delay = 3 * attempt
                 print(f"HTTP {exc.code} for {url}; retrying in {delay}s (attempt {attempt}/{attempts})")
                 time.sleep(delay)
                 continue
-
             break
-
         except (TimeoutError, URLError) as exc:
             last_error = exc
             if attempt < attempts:
                 import time
                 delay = 3 * attempt
-                print(f"Network timeout/error for {url}; retrying in {delay}s (attempt {attempt}/{attempts})")
+                print(f"Network error for {url}; retrying in {delay}s (attempt {attempt}/{attempts})")
                 time.sleep(delay)
                 continue
             break
 
     raise RuntimeError(f"Fetch failed after {attempts} attempts: {url}: {last_error}") from last_error
 
+
+def fetch_via_jina(url: str, timeout: int = 45) -> str:
+    """Fallback for sources that are reachable from Jina Reader but not CI directly.
+
+    Jina Reader fetches the requested URL server-side and returns clean content.
+    The free/basic endpoint does not require an API key; its documented basic
+    rate limit is much higher than this script's three fallback requests/day.
+    """
+    reader_url = "https://r.jina.ai/" + url
+    req = Request(
+        reader_url,
+        headers={
+            "User-Agent": UA,
+            "Accept": "text/plain, text/markdown, application/json;q=0.9, */*;q=0.8",
+            "X-Engine": "direct",
+            "X-Timeout": "45",
+        },
+    )
+    with urlopen(req, timeout=timeout) as r:
+        return r.read().decode("utf-8", errors="replace")
+
+
+def fetch_source(key: str, url: str) -> tuple[str, str]:
+    """Fetch a configured source and fall back through Jina for aespa Japan pages."""
+    if key.startswith("jp_"):
+        # These three pages repeatedly time out from GitHub runners. Use a short
+        # direct attempt first, then a server-side Reader fallback so a daily run
+        # does not spend several minutes on repeated dead connections.
+        try:
+            return fetch(url, attempts=1, timeout=20), "direct"
+        except Exception as direct_error:
+            try:
+                return fetch_via_jina(url, timeout=50), "jina"
+            except Exception as jina_error:
+                raise RuntimeError(
+                    f"Direct fetch failed: {direct_error}; Jina fallback failed: {jina_error}"
+                ) from jina_error
+
+    accept = "application/json,text/plain,*/*" if key.endswith("api") else "text/html,application/xml;q=0.9,*/*;q=0.8"
+    return fetch(url, accept=accept, attempts=3, timeout=60), "direct"
 
 def clean_text(value: str) -> str:
     value = re.sub(r"<script[\s\S]*?</script>", " ", value, flags=re.I)
@@ -136,37 +162,57 @@ def find_script_block(html: str, marker: str) -> tuple[int, int, str]:
 # NEWS
 # ---------------------------------------------------------------------------
 
-def parse_jp_news(html: str) -> list[dict]:
+def parse_jp_news(content: str) -> list[dict]:
+    """Parse aespa Japan news from either HTML or Jina Reader Markdown."""
+    out, seen = [], set()
+
+    # Normal HTML path.
     anchors = []
-    for m in re.finditer(r'<a\b[^>]*href=["\']([^"\']+)["\'][^>]*>(.*?)</a>', html, re.I | re.S):
+    for m in re.finditer(r'<a\b[^>]*href=["\']([^"\']+)["\'][^>]*>(.*?)</a>', content, re.I | re.S):
         href = urljoin(SOURCES["jp_news"], m.group(1))
         title = clean_text(m.group(2))
         if title and href.startswith("https://aespa-official.jp/news/"):
             anchors.append((m.start(), href, title))
 
-    out, seen = [], set()
-    for d in re.finditer(r"20\d{2}\.\d{1,2}\.\d{1,2}", html):
-        y, mo, da = map(int, d.group(0).split("."))
-        date = f"{y:04d}-{mo:02d}-{da:02d}"
-        candidates = [a for a in anchors if d.end() <= a[0] <= d.end() + 2200]
-        candidates.sort(key=lambda x: x[0])
-        chosen = next((a for a in candidates if len(a[2]) >= 6 and norm(a[2]) not in {"news", "next", "previous"}), None)
-        if not chosen:
-            continue
-        key = norm(chosen[2])
-        if key in seen:
-            continue
-        seen.add(key)
-        out.append({
-            "date": date,
-            "title": chosen[2],
-            "url": chosen[1],
-            "source": "aespa Japan Official",
-            "source_key": "aj",
-        })
+    if anchors:
+        for d in re.finditer(r"20\d{2}\.\d{1,2}\.\d{1,2}", content):
+            y, mo, da = map(int, d.group(0).split("."))
+            date = f"{y:04d}-{mo:02d}-{da:02d}"
+            candidates = [a for a in anchors if d.end() <= a[0] <= d.end() + 2200]
+            candidates.sort(key=lambda x: x[0])
+            chosen = next((a for a in candidates if len(a[2]) >= 6 and norm(a[2]) not in {"news", "next", "previous"}), None)
+            if not chosen:
+                continue
+            key = norm(chosen[2])
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append({"date": date, "title": chosen[2], "url": chosen[1], "source": "aespa Japan Official", "source_key": "aj"})
+    else:
+        # Jina Reader commonly returns Markdown links like:
+        # [Title](https://aespa-official.jp/news/slug/)
+        links = []
+        for m in re.finditer(r'\[([^\]]{4,200})\]\((https://aespa-official\.jp/news/[^)]+)\)', content, re.I):
+            title = clean_text(m.group(1))
+            if title:
+                links.append((m.start(), m.group(2), title))
+        for d in re.finditer(r"20\d{2}[./]\d{1,2}[./]\d{1,2}", content):
+            raw_date = d.group(0).replace("/", ".")
+            y, mo, da = map(int, raw_date.split("."))
+            date = f"{y:04d}-{mo:02d}-{da:02d}"
+            candidates = [a for a in links if d.end() <= a[0] <= d.end() + 1800]
+            candidates.sort(key=lambda x: x[0])
+            chosen = next((a for a in candidates if len(a[2]) >= 6 and norm(a[2]) not in {"news", "next", "previous"}), None)
+            if not chosen:
+                continue
+            key = norm(chosen[2])
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append({"date": date, "title": chosen[2], "url": chosen[1], "source": "aespa Japan Official", "source_key": "aj"})
+
     out.sort(key=lambda x: x["date"], reverse=True)
     return out
-
 
 def classify_news(title: str) -> str:
     t = norm(title)
@@ -314,15 +360,19 @@ def update_mvs(html: str, videos: list[dict]) -> tuple[str, int]:
 # MUSIC / OFFICIAL DISCOGRAPHY
 # ---------------------------------------------------------------------------
 
-def parse_discography_index(html: str) -> list[str]:
+def parse_discography_index(content: str) -> list[str]:
     links = []
-    for m in re.finditer(r'<a\b[^>]*href=["\']([^"\']+/discography/[^"\']+)["\'][^>]*>(.*?)</a>', html, re.I | re.S):
+    # HTML anchors
+    for m in re.finditer(r'<a\b[^>]*href=["\']([^"\']+/discography/[^"\']+)["\'][^>]*>(.*?)</a>', content, re.I | re.S):
         href = urljoin(SOURCES["jp_discography"], m.group(1))
-        if not href.startswith("https://aespa-official.jp/discography/") or href.rstrip("/") == SOURCES["jp_discography"].rstrip("/"):
-            continue
-        links.append(href)
+        if href.startswith("https://aespa-official.jp/discography/") and href.rstrip("/") != SOURCES["jp_discography"].rstrip("/"):
+            links.append(href)
+    # Jina Markdown links
+    for m in re.finditer(r'\[[^\]]{2,200}\]\((https://aespa-official\.jp/discography/[^)]+)\)', content, re.I):
+        href = m.group(1)
+        if href.rstrip("/") != SOURCES["jp_discography"].rstrip("/"):
+            links.append(href)
     return list(dict.fromkeys(links))
-
 
 def parse_discography_detail(html: str, url: str) -> dict | None:
     text = clean_text(html)
@@ -358,13 +408,19 @@ def parse_discography_detail(html: str, url: str) -> dict | None:
         return None
     year = int(date[:4])
 
-    # Artwork: use the first image under the discography page when it is clearly hosted by aespa Japan.
+    # Artwork: HTML image first; Jina Markdown image fallback second.
     artwork = ""
     for im in re.finditer(r'<img\b[^>]*src=["\']([^"\']+)["\']', html, re.I | re.S):
         src = urljoin(url, im.group(1))
         if "aespa-official.jp" in src and src.lower().endswith((".webp", ".jpg", ".jpeg", ".png")):
             artwork = src
             break
+    if not artwork:
+        for im in re.finditer(r'!\[[^\]]*\]\((https://aespa-official\.jp/[^)]+)\)', html, re.I):
+            src = im.group(1)
+            if src.lower().split("?")[0].endswith((".webp", ".jpg", ".jpeg", ".png")):
+                artwork = src
+                break
 
     tracks = []
     for m in re.finditer(r"(?:^|\s)(?:0?\d)\.\s*([^\n]+)", text):
@@ -513,6 +569,43 @@ def parse_weverse_tour(html: str) -> list[dict]:
             out.append({"date": date, "title": f"SYNK : COMPLæXITY — {city}", "desc": "Official tour date from Weverse.", "source_key": "wv"})
     return out
 
+
+def parse_jp_schedule(content: str) -> list[dict]:
+    """Parse clearly dated items from aespa Japan Schedule, HTML or Markdown."""
+    text = clean_text(content)
+    out: list[dict] = []
+    seen = set()
+
+    # Dates in the schedule are often written as 2026.09.24 or 2026/09/24.
+    date_matches = list(re.finditer(r"20\d{2}[./]\d{1,2}[./]\d{1,2}", text))
+    lines = [re.sub(r"\s+", " ", ln).strip() for ln in content.splitlines() if ln.strip()]
+    for m in date_matches:
+        raw = m.group(0).replace("/", ".")
+        y, mo, da = map(int, raw.split("."))
+        date = f"{y:04d}-{mo:02d}-{da:02d}"
+        window = text[max(0, m.start()-180):min(len(text), m.end()+260)]
+        # Pick a concise title from nearby text, removing the raw date.
+        title = re.sub(r"20\d{2}[./]\d{1,2}[./]\d{1,2}", "", window)
+        title = re.sub(r"\s+", " ", title).strip(" -–—:·")
+        if not title:
+            continue
+        # Avoid navigation/category-only snippets.
+        if len(title) < 4 or norm(title) in {"schedule", "news", "aespa"}:
+            continue
+        # Cap to a usable title.
+        title = title[:160]
+        key = (date, norm(title))
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append({
+            "date": date,
+            "title": title,
+            "desc": "Official schedule entry from aespa Japan.",
+            "source_key": "aj",
+        })
+
+    return out[:120]
 
 def update_calendar(html: str, tour_items: list[dict]) -> tuple[str, int]:
     start, end, block = find_script_block(html, "/* calendar */")
@@ -665,12 +758,24 @@ def update_awards(html: str, awards: list[dict]) -> tuple[str, int]:
 # MAIN
 # ---------------------------------------------------------------------------
 
+def fetch_jp_detail(url: str) -> tuple[str, str]:
+    """Fetch an aespa Japan detail page directly, then through Jina if needed."""
+    try:
+        return fetch(url, attempts=1, timeout=20), "direct"
+    except Exception as direct_error:
+        try:
+            return fetch_via_jina(url, timeout=50), "jina"
+        except Exception:
+            raise direct_error
+
+
 def discover_release_details(index_html: str) -> list[dict]:
     links = parse_discography_index(index_html)
     out = []
     for link in links:
         try:
-            detail = parse_discography_detail(fetch(link), link)
+            detail_html, _mode = fetch_jp_detail(link)
+            detail = parse_discography_detail(detail_html, link)
             if detail:
                 out.append(detail)
         except Exception:
@@ -700,13 +805,9 @@ def main() -> None:
     raw = {}
     for key, url in SOURCES.items():
         try:
-            accept = "application/json,text/plain,*/*" if key.endswith("api") else "text/html,application/xml;q=0.9,*/*;q=0.8"
-            # The Japanese official site can be slow to respond from shared CI runners,
-            # so give those pages a little more time while still keeping the run bounded.
-            source_timeout = 75 if key.startswith("jp_") else 60
-            raw[key] = fetch(url, accept=accept, attempts=3, timeout=source_timeout)
+            raw[key], mode = fetch_source(key, url)
             report["sources_ok"] += 1
-            report["source_status"][key] = "ok"
+            report["source_status"][key] = "ok" if mode == "direct" else "ok_via_jina"
         except Exception as exc:
             report["source_status"][key] = "error"
             report["errors"].append({"source": key, "error": str(exc)})
@@ -739,11 +840,13 @@ def main() -> None:
         n = 0
     report["applied"]["music_releases_added"] = n
 
-    # Calendar: Weverse tour notice + only clearly dated official news is handled here.
+    # Calendar: combine Weverse tour notices with clearly dated official Japan schedule entries.
     tour = parse_weverse_tour(raw["weverse"]) if "weverse" in raw else []
-    report["candidates"]["calendar"] = len(tour)
-    if not args.dry_run and tour:
-        html, n = update_calendar(html, tour)
+    jp_schedule = parse_jp_schedule(raw["jp_schedule"]) if "jp_schedule" in raw else []
+    calendar_candidates = tour + [x for x in jp_schedule if x.get("title")]
+    report["candidates"]["calendar"] = len(calendar_candidates)
+    if not args.dry_run and calendar_candidates:
+        html, n = update_calendar(html, calendar_candidates)
     else:
         n = 0
     report["applied"]["calendar_events_added"] = n
