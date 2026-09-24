@@ -120,6 +120,35 @@ def classify_news(title: str) -> str:
     return "ou"
 
 
+
+
+def parse_js_source_map(raw: str) -> dict[str, list[str]]:
+    """Parse the simple JS source-map object used by the site.
+
+    The site stores it as JavaScript, e.g.:
+      {ai:["label","url"],wk:["label","url"]}
+    which is valid JS but is not valid JSON because the property names are
+    unquoted.
+    """
+    body = raw.strip()
+    if body.startswith("{") and body.endswith("}"):
+        body = body[1:-1]
+    pair_re = re.compile(
+        r'([A-Za-z_$][\w$]*)\s*:\s*\[\s*("(?:\\.|[^"\\])*")\s*,\s*("(?:\\.|[^"\\])*")\s*\]'
+    )
+    out: dict[str, list[str]] = {}
+    for m in pair_re.finditer(body):
+        try:
+            label = json.loads(m.group(2))
+            url = json.loads(m.group(3))
+        except json.JSONDecodeError as exc:
+            raise RuntimeError(f"Invalid source-map string: {m.group(0)}") from exc
+        out[m.group(1)] = [label, url]
+    if not out:
+        raise RuntimeError("Could not parse the JavaScript source map.")
+    return out
+
+
 def update_news(html: str, items: list[dict]) -> tuple[str, int]:
     start, end, block = find_script_block(html, "/* news */")
     sr = re.search(r"var\s+SR\s*=\s*(\{.*?\});", block, re.S)
@@ -139,7 +168,7 @@ def update_news(html: str, items: list[dict]) -> tuple[str, int]:
     if not add:
         return html, 0
 
-    sr_obj = json.loads(sr.group(1))
+    sr_obj = parse_js_source_map(sr.group(1))
     sr_obj["aj"] = ["aespa Japan Official", SOURCES["jp_news"]]
     merged = (add + data)[:200]
     block = re.sub(r"var\s+SR\s*=\s*\{.*?\};", "var SR=" + js_json(sr_obj) + ";", block, count=1, flags=re.S)
@@ -484,7 +513,7 @@ def update_fashion(html: str, news: list[dict]) -> tuple[str, int]:
     dm = re.search(r"var\s+D\s*=\s*(\[.*?\]);", block, re.S)
     if not sm or not dm:
         raise RuntimeError("Fashion data block not found")
-    sr = json.loads(sm.group(1))
+    sr = parse_js_source_map(sm.group(1))
     data = json.loads(dm.group(1))
     existing = {norm(x[2]) for x in data if isinstance(x, list) and len(x) >= 3}
     add = []
@@ -553,7 +582,7 @@ def update_awards(html: str, awards: list[dict]) -> tuple[str, int]:
     dm = re.search(r"var\s+D\s*=\s*(\[.*?\]);", block, re.S)
     if not sm or not dm:
         raise RuntimeError("Achievements data block not found")
-    sr = json.loads(sm.group(1))
+    sr = parse_js_source_map(sm.group(1))
     data = json.loads(dm.group(1))
     existing = {norm(x[2]) for x in data if isinstance(x, list) and len(x) >= 3}
     add = []
@@ -693,5 +722,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
-
