@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 HTML_FILE = ROOT / "index.html"
 REPORT_FILE = ROOT / "data" / "automation_report.json"
 
-UA = "Mozilla/5.0 (compatible; aespa-database-updater/2.0; +https://github.com/)"
+UA = "aespa-database-updater/2.1 (https://github.com/avagor1/aespa-database)"
 
 SOURCES = {
     "jp_news": "https://aespa-official.jp/news/",
@@ -24,17 +24,78 @@ SOURCES = {
     "weverse": "https://weverse.io/aespa/notice",
     "weverse_shop": "https://shop.weverse.io/en/shop/MXN/artists/133/notices",
     "youtube_feed": "https://www.youtube.com/feeds/videos.xml?channel_id=UC9GtSLeksfK4yuJ_g1lgQbg",
-    "awards_wiki_api": "https://en.wikipedia.org/w/api.php?action=parse&page=List_of_awards_and_nominations_received_by_Aespa&prop=wikitext&format=json",
+    "awards_wiki_raw": "https://en.wikipedia.org/w/index.php?title=List_of_awards_and_nominations_received_by_Aespa&action=raw",
 }
 
 
-def fetch(url: str, accept: str = "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8") -> str:
-    req = Request(url, headers={"User-Agent": UA, "Accept": accept})
-    try:
-        with urlopen(req, timeout=40) as r:
-            return r.read().decode("utf-8", errors="replace")
-    except (HTTPError, URLError) as exc:
-        raise RuntimeError(f"Fetch failed: {url}: {exc}") from exc
+def fetch(
+    url: str,
+    accept: str = "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    attempts: int = 3,
+    timeout: int = 60,
+) -> str:
+    """Fetch a source with conservative retries and 429 handling.
+
+    GitHub-hosted jobs occasionally hit transient network timeouts, and Wikimedia
+    APIs may respond with 429 rate limits. We retry those transient failures with
+    a small exponential backoff instead of failing the whole daily update.
+    """
+    last_error: Exception | None = None
+
+    for attempt in range(1, attempts + 1):
+        req = Request(
+            url,
+            headers={
+                "User-Agent": UA,
+                "Accept": accept,
+                "Accept-Language": "en-US,en;q=0.9,fr;q=0.8",
+                "Cache-Control": "no-cache",
+                "Pragma": "no-cache",
+            },
+        )
+
+        try:
+            with urlopen(req, timeout=timeout) as r:
+                return r.read().decode("utf-8", errors="replace")
+
+        except HTTPError as exc:
+            last_error = exc
+
+            # Respect Wikimedia/API rate limiting when Retry-After is supplied.
+            if exc.code == 429:
+                retry_after = exc.headers.get("Retry-After")
+                try:
+                    delay = max(5, min(int(retry_after), 60)) if retry_after else 10 * attempt
+                except (TypeError, ValueError):
+                    delay = 10 * attempt
+
+                if attempt < attempts:
+                    import time
+                    print(f"429 for {url}; retrying in {delay}s (attempt {attempt}/{attempts})")
+                    time.sleep(delay)
+                    continue
+
+            # Retry temporary server errors as well.
+            if exc.code in {500, 502, 503, 504} and attempt < attempts:
+                import time
+                delay = 3 * attempt
+                print(f"HTTP {exc.code} for {url}; retrying in {delay}s (attempt {attempt}/{attempts})")
+                time.sleep(delay)
+                continue
+
+            break
+
+        except (TimeoutError, URLError) as exc:
+            last_error = exc
+            if attempt < attempts:
+                import time
+                delay = 3 * attempt
+                print(f"Network timeout/error for {url}; retrying in {delay}s (attempt {attempt}/{attempts})")
+                time.sleep(delay)
+                continue
+            break
+
+    raise RuntimeError(f"Fetch failed after {attempts} attempts: {url}: {last_error}") from last_error
 
 
 def clean_text(value: str) -> str:
@@ -590,7 +651,7 @@ def update_awards(html: str, awards: list[dict]) -> tuple[str, int]:
         title = f"2026 award update: {a['text']}"
         if norm(title) in existing:
             continue
-        add.append(["aw", "2026", title, "Parsed from the current Wikipedia awards table; verify against the award organizer before treating it as final.", "wa"])
+        add.append(["aw", "2026", title, "Parsed from the current awards reference; verify against the award organizer before treating it as final.", "wa"])
         existing.add(norm(title))
     if not add:
         return html, 0
@@ -630,6 +691,7 @@ def main() -> None:
         "checked_at": datetime.now(timezone.utc).isoformat(),
         "sources_ok": 0,
         "sources_total": len(SOURCES),
+        "source_status": {},
         "errors": [],
         "candidates": {},
         "applied": {},
@@ -638,9 +700,15 @@ def main() -> None:
     raw = {}
     for key, url in SOURCES.items():
         try:
-            raw[key] = fetch(url, accept="application/json,text/plain,*/*" if key.endswith("api") else "text/html,application/xml;q=0.9,*/*;q=0.8")
+            accept = "application/json,text/plain,*/*" if key.endswith("api") else "text/html,application/xml;q=0.9,*/*;q=0.8"
+            # The Japanese official site can be slow to respond from shared CI runners,
+            # so give those pages a little more time while still keeping the run bounded.
+            source_timeout = 75 if key.startswith("jp_") else 60
+            raw[key] = fetch(url, accept=accept, attempts=3, timeout=source_timeout)
             report["sources_ok"] += 1
+            report["source_status"][key] = "ok"
         except Exception as exc:
+            report["source_status"][key] = "error"
             report["errors"].append({"source": key, "error": str(exc)})
 
     # News
@@ -689,13 +757,14 @@ def main() -> None:
         n = 0
     report["applied"]["fashion_entries_added"] = n
 
-    # Awards: use current Wikipedia awards table as a structured fallback, but mark it as such in the entry text.
+    # Awards: use the Wikimedia raw wikitext endpoint as a structured fallback.
+    # This avoids the Action API endpoint that was returning 429 on shared CI runners.
     awards = []
-    if "awards_wiki_api" in raw:
+    if "awards_wiki_raw" in raw:
         try:
-            awards = parse_awards_wikitext(raw["awards_wiki_api"])
+            awards = parse_awards_wikitext(json.dumps({"parse": {"wikitext": {"*": raw["awards_wiki_raw"]}}}))
         except Exception as exc:
-            report["errors"].append({"source": "awards_wiki_api_parse", "error": str(exc)})
+            report["errors"].append({"source": "awards_wiki_raw_parse", "error": str(exc)})
     report["candidates"]["awards"] = len(awards)
     if not args.dry_run and awards:
         html, n = update_awards(html, awards)
