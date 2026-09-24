@@ -1,0 +1,473 @@
+{
+  "checked_at": "2026-09-24T20:48:54.263739+00:00",
+  "sources": {
+    "aespa_japan_news": {
+      "ok": true,
+      "url": "https://aespa-official.jp/news/"
+    },
+    "aespa_japan_schedule": {
+      "ok": true,
+      "url": "https://aespa-official.jp/schedule/"
+    },
+    "weverse_notices": {
+      "ok": true,
+      "url": "https://weverse.io/aespa/notice"
+    },
+    "weverse_shop": {
+      "ok": true,
+      "url": "https://shop.weverse.io/en/shop/MXN/artists/133/notices"
+    },
+    "youtube_feed": {
+      "ok": true,
+      "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UC9GtSLeksfK4yuJ_g1lgQbg"
+    }
+  },
+  "candidates": [
+    {
+      "source": "aespa Japan Official",
+      "source_key": "aj",
+      "kind": "news",
+      "date": "2026-09-16",
+      "title": "『知っTELL？aespa』放送日に関するお知らせ",
+      "url": "https://aespa-official.jp/news/abema-variety2/",
+      "category": "an"
+    },
+    {
+      "source": "aespa Japan Official",
+      "source_key": "aj",
+      "kind": "news",
+      "date": "2026-09-09",
+      "title": "KARINAがブランドアンバサダーを務めるラグジュアリーゴルフブランド『MARK & LONA(マーク＆ロナ)』の新ビジュアルが公開！",
+      "url": "https://aespa-official.jp/news/mark-lona-2026/",
+      "category": "cl"
+    },
+    {
+      "source": "aespa Japan Official",
+      "source_key": "aj",
+      "kind": "news",
+      "date": "2026-09-07",
+      "title": "aespa 9月20日(日)放送 日本テレビ『Golden SixTONES』出演決定！",
+      "url": "https://aespa-official.jp/news/golden-sixtones/",
+      "category": "an"
+    },
+    {
+      "source": "aespa Japan Official",
+      "source_key": "aj",
+      "kind": "news",
+      "date": "2026-09-04",
+      "title": "aespa 9月11日(金)放送 日本テレビ「バズリズム02」出演決定！",
+      "url": "https://aespa-official.jp/news/buzzrhythm/",
+      "category": "an"
+    },
+    {
+      "source": "aespa Japan Official",
+      "source_key": "aj",
+      "kind": "news",
+      "date": "2026-08-25",
+      "title": "aespa The 1st Japan Mini Album『KISS N TELL』LINE MUSIC再生キャンペーン実施決定！",
+      "url": "https://aespa-official.jp/news/kissntell-linemusic/",
+      "category": "co"
+    },
+    {
+      "source": "aespa Japan Official",
+      "source_key": "aj",
+      "kind": "news",
+      "date": "2026-08-21",
+      "title": "『知っTELL？aespa』放送日変更に関するお知らせ",
+      "url": "https://aespa-official.jp/news/abema-postpone/",
+      "category": "an"
+    },
+    {
+      "source": "aespa Japan Official",
+      "source_key": "aj",
+      "kind": "news",
+      "date": "2026-08-17",
+      "title": "aespa 日本初冠バラエティ特別番組『知っTELL？aespa』が8月22日(土)夜9時より「ABEMA」にて独占無料配信決定！",
+      "url": "https://aespa-official.jp/news/abema-variety/",
+      "category": "an"
+    },
+    {
+      "source": "aespa Japan Official",
+      "source_key": "aj",
+      "kind": "news",
+      "date": "2026-08-10",
+      "title": "GISELLE 雑誌「CLASSY.」10月号＜通常版＞に初登場＆初表紙決定！",
+      "url": "https://aespa-official.jp/news/giselle-classy/",
+      "category": "ma"
+    },
+    {
+      "source": "aespa Japan Official",
+      "source_key": "aj",
+      "kind": "news",
+      "date": "2026-08-05",
+      "title": "「2026-27 aespa LIVE TOUR – SYNK : COMPLaeXITY -」韓国公演の輸入MD受注販売が決定！",
+      "url": "https://aespa-official.jp/news/complaexity-import-md/",
+      "category": "cc"
+    },
+    {
+      "source": "aespa Japan Official",
+      "source_key": "aj",
+      "kind": "news",
+      "date": "2026-08-03",
+      "title": "aespa The 1st Japan Mini Album『KISS N TELL』豪華シリアルコード応募特典開催日決定のお知らせ",
+      "url": "https://aespa-official.jp/news/kissntell-serial-date/",
+      "category": "co"
+    },
+    {
+      "source": "aespa Japan Official",
+      "source_key": "aj",
+      "kind": "news",
+      "date": "2026-08-03",
+      "title": "aespa The 1st Japan Mini Album『KISS N TELL』リリース記念配信キャンペーン実施決定！",
+      "url": "https://aespa-official.jp/news/kissntell-streaming-campaign/",
+      "category": "co"
+    },
+    {
+      "source": "aespa Japan Official",
+      "source_key": "aj",
+      "kind": "news",
+      "date": "2026-07-25",
+      "title": "aespa The 1st Japan Mini Album『KISS N TELL』商品に関するお詫び",
+      "url": "https://aespa-official.jp/news/kissntell-correction/",
+      "category": "co"
+    },
+    {
+      "source": "aespa Japan Official",
+      "source_key": "aj",
+      "kind": "news",
+      "date": "2026-07-24",
+      "title": "aespa The 1st Japan Mini Album『KISS N TELL』リリース！リード曲「KISS N TELL」のMVも公開！",
+      "url": "https://aespa-official.jp/news/kissntell-release/",
+      "category": "co"
+    },
+    {
+      "source": "aespa Japan Official",
+      "source_key": "aj",
+      "kind": "news",
+      "date": "2026-07-22",
+      "title": "aespa The 1st Japan Mini Album『KISS N TELL』発売記念、各CDチェーン店にてキャンペーン開催決定！",
+      "url": "https://aespa-official.jp/news/kissntell-campaign/",
+      "category": "co"
+    },
+    {
+      "source": "aespa Japan Official",
+      "source_key": "aj",
+      "kind": "news",
+      "date": "2026-07-20",
+      "title": "「2026-27 aespa LIVE TOUR – SYNK : COMPLaeXITY」の生中継が決定！",
+      "url": "https://aespa-official.jp/news/complaexity-liveviewing/",
+      "category": "cc"
+    },
+    {
+      "source": "aespa Japan Official",
+      "source_key": "aj",
+      "kind": "news",
+      "date": "2026-07-17",
+      "title": "「aespa POP-UP STORE “KISS N TELL”」グッズおよびキャンペーンの詳細決定！",
+      "url": "https://aespa-official.jp/news/popupstore-kissntell/",
+      "category": "an"
+    },
+    {
+      "source": "aespa Japan Official",
+      "source_key": "aj",
+      "kind": "news",
+      "date": "2026-07-17",
+      "title": "aespa The 1st Japan Mini Album『KISS N TELL』、会場限定豪華特典付き予約受付決定！※7/17(金)詳細一部修正",
+      "url": "https://aespa-official.jp/news/fanmeeting2026-myclassmaete-meetandgreet/",
+      "category": "co"
+    },
+    {
+      "source": "aespa Japan Official",
+      "source_key": "aj",
+      "kind": "news",
+      "date": "2026-07-16",
+      "title": "aespa 7月23日(木)放送 フジテレビ『STAR』出演決定！",
+      "url": "https://aespa-official.jp/news/fujitv-star/",
+      "category": "an"
+    },
+    {
+      "source": "aespa Japan Official",
+      "source_key": "aj",
+      "kind": "news",
+      "date": "2026-07-16",
+      "title": "aespa The 1st Japan Mini Album『KISS N TELL』のティーザー映像公開！Pre-Add / Pre-Save プレゼントキャンペーンもスタート！",
+      "url": "https://aespa-official.jp/news/kissntell-teaser-preadd/",
+      "category": "co"
+    },
+    {
+      "source": "aespa Japan Official",
+      "source_key": "aj",
+      "kind": "news",
+      "date": "2026-07-15",
+      "title": "『MY-J presents aespa JAPAN FANMEETING 2026 “MY CLASSMaeTE”』お持ち込み可能なペンライトについてのご案内",
+      "url": "https://aespa-official.jp/news/fanmeeting2026-myclassmaete-penlight/",
+      "category": "ou"
+    },
+    {
+      "source": "Weverse Shop",
+      "kind": "notice",
+      "title": "Weverse Shop Notice to Our Weverse Customers",
+      "url": "https://shop.weverse.io/en/notices/14265"
+    },
+    {
+      "source": "Weverse Shop",
+      "kind": "notice",
+      "title": "Weverse Shop [Global Shop ONLY] 2026 Chuseok Holiday Shipping Schedule",
+      "url": "https://shop.weverse.io/en/notices/14336"
+    },
+    {
+      "source": "Weverse Shop",
+      "kind": "notice",
+      "title": "Weverse Shop Notice of Amendment to Weverse Company Privacy Policy (Sep 16, 2026)",
+      "url": "https://shop.weverse.io/en/notices/14332"
+    },
+    {
+      "source": "Weverse Shop",
+      "kind": "notice",
+      "title": "Weverse Shop [GLOBAL SHOP ONLY] Regarding Shipping during the 2026 Holidays of China",
+      "url": "https://shop.weverse.io/en/notices/14331"
+    },
+    {
+      "source": "Weverse Shop",
+      "kind": "notice",
+      "title": "aespa [Notice] aespa Official Fanclub MY Membership (GLOBAL) Renewed Now Available",
+      "url": "https://shop.weverse.io/en/shop/USD/artists/133/notices/14181"
+    },
+    {
+      "source": "Weverse Shop",
+      "kind": "notice",
+      "title": "Weverse Shop Weverse Shop X KB국민카드 9월 즉시할인 프로모션 안내",
+      "url": "https://shop.weverse.io/en/notices/14129"
+    },
+    {
+      "source": "Weverse Shop",
+      "kind": "notice",
+      "title": "Weverse Shop Weverse Shop x Kakaopay 9월 즉시할인 프로모션 안내",
+      "url": "https://shop.weverse.io/en/notices/14214"
+    },
+    {
+      "source": "Weverse Shop",
+      "kind": "notice",
+      "title": "aespa [Weverse Global] 2nd Round of Pre-orders for aespa The 1st Japan Mini Album [Kiss N Tell]",
+      "url": "https://shop.weverse.io/en/shop/USD/artists/133/notices/14231"
+    },
+    {
+      "source": "Weverse Shop",
+      "kind": "notice",
+      "title": "Weverse Shop Weverse Shop's New Feature: Auto Payment for Official Membership (September 3, 2026)",
+      "url": "https://shop.weverse.io/en/notices/14202"
+    },
+    {
+      "source": "Weverse Shop",
+      "kind": "notice",
+      "title": "Weverse Shop Weverse Shop X PAYCO 9월 포인트 적립 프로모션 안내",
+      "url": "https://shop.weverse.io/en/notices/14128"
+    },
+    {
+      "source": "Weverse Shop",
+      "kind": "notice",
+      "title": "Weverse Shop Weverse Shop X NAVER Pay 9월 포인트 적립 프로모션 안내",
+      "url": "https://shop.weverse.io/en/notices/14126"
+    },
+    {
+      "source": "Weverse Shop",
+      "kind": "notice",
+      "title": "aespa [Weverse Global] Pre-order aespa LIVE TOUR -SYNK : COMPLaeXITY- Official Merch",
+      "url": "https://shop.weverse.io/en/shop/USD/artists/133/notices/13940"
+    },
+    {
+      "source": "Weverse Shop",
+      "kind": "notice",
+      "title": "Weverse Shop [Notice] August Weverse Shop Cash Reward Schedule Adjusted for Weverse Card",
+      "url": "https://shop.weverse.io/en/notices/13944"
+    },
+    {
+      "source": "Weverse Shop",
+      "kind": "notice",
+      "title": "aespa Adjustments on aespa The 1st Japan Mini Album [Kiss N Tell] Official Release (2026/08/20 UPDATED)",
+      "url": "https://shop.weverse.io/en/shop/USD/artists/133/notices/13914"
+    },
+    {
+      "source": "Weverse Shop",
+      "kind": "notice",
+      "title": "Weverse Shop Weverse Shop X 삼성카드 8월 즉시할인 프로모션 안내",
+      "url": "https://shop.weverse.io/en/notices/13881"
+    },
+    {
+      "source": "Weverse Shop",
+      "kind": "notice",
+      "title": "Weverse Shop Weverse Shop X NAVER Pay 8월 포인트 적립 프로모션 안내",
+      "url": "https://shop.weverse.io/en/notices/13798"
+    },
+    {
+      "source": "aespa Official YouTube",
+      "kind": "video",
+      "title": "round and round #aespa #æspa #에스파 #WINTER #윈터",
+      "url": "https://www.youtube.com/watch?v=HpX_RDbSrvw",
+      "video_id": "HpX_RDbSrvw",
+      "published": "2026-09-24T08:04:23+00:00",
+      "updated": "2026-09-24T18:49:11+00:00",
+      "likely_mv": false,
+      "thumbnail": "https://i.ytimg.com/vi/HpX_RDbSrvw/maxresdefault.jpg"
+    },
+    {
+      "source": "aespa Official YouTube",
+      "kind": "video",
+      "title": "예쁜 드레스~👗 예쁜 주얼리~💎 | NINGNING at BVLGARI Event in Shenzhen | NING’S LOG",
+      "url": "https://www.youtube.com/watch?v=3OV3fNDXnsQ",
+      "video_id": "3OV3fNDXnsQ",
+      "published": "2026-09-23T13:00:18+00:00",
+      "updated": "2026-09-24T16:30:18+00:00",
+      "likely_mv": false,
+      "thumbnail": "https://i.ytimg.com/vi/3OV3fNDXnsQ/maxresdefault.jpg"
+    },
+    {
+      "source": "aespa Official YouTube",
+      "kind": "video",
+      "title": "안녕하세요 벨마 역에 지원한 411번 유지민입니다. 잘 부탁드립니다! #aespa #æspa #에스파 #KARINA #카리나",
+      "url": "https://www.youtube.com/watch?v=elNAWxvIUr0",
+      "video_id": "elNAWxvIUr0",
+      "published": "2026-09-23T10:33:01+00:00",
+      "updated": "2026-09-24T16:58:23+00:00",
+      "likely_mv": false,
+      "thumbnail": "https://i.ytimg.com/vi/elNAWxvIUr0/maxresdefault.jpg"
+    },
+    {
+      "source": "aespa Official YouTube",
+      "kind": "video",
+      "title": "guess what we did in NYC #aespa #æspa #에스파",
+      "url": "https://www.youtube.com/watch?v=Esymui4NDTM",
+      "video_id": "Esymui4NDTM",
+      "published": "2026-09-20T04:02:16+00:00",
+      "updated": "2026-09-23T20:22:59+00:00",
+      "likely_mv": false,
+      "thumbnail": "https://i.ytimg.com/vi/Esymui4NDTM/maxresdefault.jpg"
+    },
+    {
+      "source": "aespa Official YouTube",
+      "kind": "video",
+      "title": "[ae:scenes] 사진을 부르는 비주얼 📸🤍 | 에스파 지젤 클래시 화보 비하인드 (aespa GISELLE CLASSY. Photoshoot Behind)",
+      "url": "https://www.youtube.com/watch?v=OnwKzG4DMJ0",
+      "video_id": "OnwKzG4DMJ0",
+      "published": "2026-09-18T13:00:19+00:00",
+      "updated": "2026-09-19T08:59:17+00:00",
+      "likely_mv": false,
+      "thumbnail": "https://i.ytimg.com/vi/OnwKzG4DMJ0/maxresdefault.jpg"
+    },
+    {
+      "source": "aespa Official YouTube",
+      "kind": "video",
+      "title": "shall we?🪿 #aespa #æspa #에스파 #WINTER #윈터 #SaddleUp #SYNK_COMPLaeXITY #aespa_SYNK_COMPLaeXITY",
+      "url": "https://www.youtube.com/watch?v=OzTOBNfXcrs",
+      "video_id": "OzTOBNfXcrs",
+      "published": "2026-09-18T08:01:34+00:00",
+      "updated": "2026-09-20T22:36:59+00:00",
+      "likely_mv": false,
+      "thumbnail": "https://i.ytimg.com/vi/OzTOBNfXcrs/maxresdefault.jpg"
+    },
+    {
+      "source": "aespa Official YouTube",
+      "kind": "video",
+      "title": "i'm gonna need some more #aespa #GISELLE #BYEB4HELLO #SYNK_COMPLaeXITY #aespa_SYNK_COMPLaeXITY",
+      "url": "https://www.youtube.com/watch?v=pTxyYcbFGNA",
+      "video_id": "pTxyYcbFGNA",
+      "published": "2026-09-18T07:31:21+00:00",
+      "updated": "2026-09-23T15:02:11+00:00",
+      "likely_mv": false,
+      "thumbnail": "https://i.ytimg.com/vi/pTxyYcbFGNA/maxresdefault.jpg"
+    },
+    {
+      "source": "aespa Official YouTube",
+      "kind": "video",
+      "title": "don't be shy #aespa #æspa #에스파 #WINTER #윈터 #SaddleUp #SYNK_COMPLaeXITY #aespa_SYNK_COMPLaeXITY",
+      "url": "https://www.youtube.com/watch?v=XSSBBv4Z_hI",
+      "video_id": "XSSBBv4Z_hI",
+      "published": "2026-09-17T08:31:33+00:00",
+      "updated": "2026-09-18T12:45:51+00:00",
+      "likely_mv": false,
+      "thumbnail": "https://i.ytimg.com/vi/XSSBBv4Z_hI/maxresdefault.jpg"
+    },
+    {
+      "source": "aespa Official YouTube",
+      "kind": "video",
+      "title": "bowww #aespa #æspa #에스파 #KARINA #카리나",
+      "url": "https://www.youtube.com/watch?v=u-E6dncBC0g",
+      "video_id": "u-E6dncBC0g",
+      "published": "2026-09-17T08:01:20+00:00",
+      "updated": "2026-09-22T08:01:23+00:00",
+      "likely_mv": false,
+      "thumbnail": "https://i.ytimg.com/vi/u-E6dncBC0g/maxresdefault.jpg"
+    },
+    {
+      "source": "aespa Official YouTube",
+      "kind": "video",
+      "title": "come saddle up #aespa #æspa #에스파 #WINTER #윈터 #SaddleUp #SYNK_COMPLaeXITY #aespa_SYNK_COMPLaeXITY",
+      "url": "https://www.youtube.com/watch?v=I4B0HwUdIEE",
+      "video_id": "I4B0HwUdIEE",
+      "published": "2026-09-16T05:34:07+00:00",
+      "updated": "2026-09-17T15:50:25+00:00",
+      "likely_mv": false,
+      "thumbnail": "https://i.ytimg.com/vi/I4B0HwUdIEE/maxresdefault.jpg"
+    },
+    {
+      "source": "aespa Official YouTube",
+      "kind": "video",
+      "title": "be my lover boy #aespa #æspa #에스파 #GISELLE #지젤 #BYEB4HELLO #SYNK_COMPLaeXITY #aespa_SYNK_COMPLaeXITY",
+      "url": "https://www.youtube.com/watch?v=aNwUU2WlmeY",
+      "video_id": "aNwUU2WlmeY",
+      "published": "2026-09-16T05:01:55+00:00",
+      "updated": "2026-09-23T15:00:17+00:00",
+      "likely_mv": false,
+      "thumbnail": "https://i.ytimg.com/vi/aNwUU2WlmeY/maxresdefault.jpg"
+    },
+    {
+      "source": "aespa Official YouTube",
+      "kind": "video",
+      "title": "iloveyoubutigottaletyougo #aespa #NINGNING #ILoveYouButIGottaLetYouGo #SYNK_COMPLaeXITY",
+      "url": "https://www.youtube.com/watch?v=iYqC0zFrxrk",
+      "video_id": "iYqC0zFrxrk",
+      "published": "2026-09-15T07:38:43+00:00",
+      "updated": "2026-09-17T23:44:58+00:00",
+      "likely_mv": false,
+      "thumbnail": "https://i.ytimg.com/vi/iYqC0zFrxrk/maxresdefault.jpg"
+    },
+    {
+      "source": "aespa Official YouTube",
+      "kind": "video",
+      "title": "click once to repeat #aespa #æspa #에스파 #KARINA #카리나 #16Bit #SYNK_COMPLaeXITY #aespa_SYNK_COMPLaeXITY",
+      "url": "https://www.youtube.com/watch?v=zEmXCh0p0_8",
+      "video_id": "zEmXCh0p0_8",
+      "published": "2026-09-15T04:31:45+00:00",
+      "updated": "2026-09-23T09:58:57+00:00",
+      "likely_mv": false,
+      "thumbnail": "https://i.ytimg.com/vi/zEmXCh0p0_8/maxresdefault.jpg"
+    },
+    {
+      "source": "aespa Official YouTube",
+      "kind": "video",
+      "title": "wait i forgot my color #aespa #æspa #에스파 #KARINA #카리나 #GISELLE #지젤",
+      "url": "https://www.youtube.com/watch?v=HTHaodin2gs",
+      "video_id": "HTHaodin2gs",
+      "published": "2026-09-13T11:01:29+00:00",
+      "updated": "2026-09-19T00:57:26+00:00",
+      "likely_mv": false,
+      "thumbnail": "https://i.ytimg.com/vi/HTHaodin2gs/maxresdefault.jpg"
+    },
+    {
+      "source": "aespa Official YouTube",
+      "kind": "video",
+      "title": "i like everything #aespa #æspa #에스파 #NINGNING #닝닝",
+      "url": "https://www.youtube.com/watch?v=Dj-BdQotxyQ",
+      "video_id": "Dj-BdQotxyQ",
+      "published": "2026-09-12T07:02:22+00:00",
+      "updated": "2026-09-13T07:56:18+00:00",
+      "likely_mv": false,
+      "thumbnail": "https://i.ytimg.com/vi/Dj-BdQotxyQ/maxresdefault.jpg"
+    }
+  ],
+  "errors": [],
+  "applied": {
+    "news_entries_added": 0,
+    "index_updated": false
+  }
+}
