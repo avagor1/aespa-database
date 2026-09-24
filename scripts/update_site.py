@@ -3,7 +3,8 @@ from __future__ import annotations
 import argparse
 import json
 import re
-from datetime import datetime, timezone
+import unicodedata
+from datetime import date, datetime, timezone
 from html import unescape
 from pathlib import Path
 from urllib.parse import quote, urljoin
@@ -15,7 +16,12 @@ ROOT = Path(__file__).resolve().parents[1]
 HTML_FILE = ROOT / "index.html"
 REPORT_FILE = ROOT / "data" / "automation_report.json"
 
-UA = "aespa-database-updater/2.2 (https://github.com/avagor1/aespa-database)"
+UA = "aespa-database-updater/2.3 (https://github.com/avagor1/aespa-database)"
+
+# Music releases older than this many days are NOT auto-added (the robot is meant
+# to catch new releases, not to backfill the whole discography). Override with
+# `--music-max-age-days N` (0 = no limit, useful once to backfill).
+MUSIC_MAX_AGE_DAYS = 120
 
 SOURCES = {
     "jp_news": "https://aespa-official.jp/news/",
@@ -137,6 +143,19 @@ def norm(value: str) -> str:
     return re.sub(r"\s+", " ", unescape(value).lower()).strip()
 
 
+def title_key(value: str) -> str:
+    """Aggressive normalisation used to decide whether a release/song is already on the site.
+
+    "Life’s Too Short (English Ver.)", "Life's Too Short — English Version" and
+    "life's too short" all give the same key, so the robot does not re-add them.
+    """
+    v = unicodedata.normalize("NFKC", unescape(value)).lower()
+    v = v.replace("\u2019", "'").replace("\u2018", "'")
+    v = re.sub(r"\s*[\(\[（].*?[\)\]）]", "", v)   # (feat. x), (English Ver.)
+    v = re.sub(r"\s+[\u2014\u2013-]\s+.*$", "", v)  # " — feat. X", " — English Version"
+    return re.sub(r"[^\w]+", "", v)
+
+
 def js_json(value) -> str:
     return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
 
@@ -177,7 +196,7 @@ def parse_jp_news(content: str) -> list[dict]:
     if anchors:
         for d in re.finditer(r"20\d{2}\.\d{1,2}\.\d{1,2}", content):
             y, mo, da = map(int, d.group(0).split("."))
-            date = f"{y:04d}-{mo:02d}-{da:02d}"
+            date_ = f"{y:04d}-{mo:02d}-{da:02d}"
             candidates = [a for a in anchors if d.end() <= a[0] <= d.end() + 2200]
             candidates.sort(key=lambda x: x[0])
             chosen = next((a for a in candidates if len(a[2]) >= 6 and norm(a[2]) not in {"news", "next", "previous"}), None)
@@ -187,7 +206,7 @@ def parse_jp_news(content: str) -> list[dict]:
             if key in seen:
                 continue
             seen.add(key)
-            out.append({"date": date, "title": chosen[2], "url": chosen[1], "source": "aespa Japan Official", "source_key": "aj"})
+            out.append({"date": date_, "title": chosen[2], "url": chosen[1], "source": "aespa Japan Official", "source_key": "aj"})
     else:
         # Jina Reader commonly returns Markdown links like:
         # [Title](https://aespa-official.jp/news/slug/)
@@ -199,7 +218,7 @@ def parse_jp_news(content: str) -> list[dict]:
         for d in re.finditer(r"20\d{2}[./]\d{1,2}[./]\d{1,2}", content):
             raw_date = d.group(0).replace("/", ".")
             y, mo, da = map(int, raw_date.split("."))
-            date = f"{y:04d}-{mo:02d}-{da:02d}"
+            date_ = f"{y:04d}-{mo:02d}-{da:02d}"
             candidates = [a for a in links if d.end() <= a[0] <= d.end() + 1800]
             candidates.sort(key=lambda x: x[0])
             chosen = next((a for a in candidates if len(a[2]) >= 6 and norm(a[2]) not in {"news", "next", "previous"}), None)
@@ -209,7 +228,7 @@ def parse_jp_news(content: str) -> list[dict]:
             if key in seen:
                 continue
             seen.add(key)
-            out.append({"date": date, "title": chosen[2], "url": chosen[1], "source": "aespa Japan Official", "source_key": "aj"})
+            out.append({"date": date_, "title": chosen[2], "url": chosen[1], "source": "aespa Japan Official", "source_key": "aj"})
 
     out.sort(key=lambda x: x["date"], reverse=True)
     return out
@@ -359,89 +378,330 @@ def update_mvs(html: str, videos: list[dict]) -> tuple[str, int]:
 # ---------------------------------------------------------------------------
 # MUSIC / OFFICIAL DISCOGRAPHY
 # ---------------------------------------------------------------------------
+#
+# Layout of an aespa-official.jp release page (after tags are stripped):
+#
+#   Digital Single            <- release type
+#   Dreams Come True          <- title (also the <title> of the page)
+#   [cover image]             <- .../wp-content/uploads/....webp
+#   2021.12.20                <- release date
+#   1.Dreams Come True        <- tracklist ("1.", "01." or "・" prefixes)
+#   BACK                      <- end of the useful content
+#   Copyright © SM ...        <- footer (must never end up in a title!)
+#
+# The header of every page also contains the LINE account icon
+# (/themes/kissntell/img/line.png). It is NOT a cover: covers are only taken
+# from /wp-content/uploads/.
 
-def parse_discography_index(content: str) -> list[str]:
-    links = []
-    # HTML anchors
-    for m in re.finditer(r'<a\b[^>]*href=["\']([^"\']+/discography/[^"\']+)["\'][^>]*>(.*?)</a>', content, re.I | re.S):
-        href = urljoin(SOURCES["jp_discography"], m.group(1))
-        if href.startswith("https://aespa-official.jp/discography/") and href.rstrip("/") != SOURCES["jp_discography"].rstrip("/"):
-            links.append(href)
-    # Jina Markdown links
-    for m in re.finditer(r'\[[^\]]{2,200}\]\((https://aespa-official\.jp/discography/[^)]+)\)', content, re.I):
-        href = m.group(1)
-        if href.rstrip("/") != SOURCES["jp_discography"].rstrip("/"):
-            links.append(href)
-    return list(dict.fromkeys(links))
+JP_CHARS = re.compile(r"[\u3040-\u30ff\u3400-\u9fff]")
+BOILERPLATE = re.compile(r"copyright|\u00a9|all rights reserved|https?://", re.I)
+DATE_RE = re.compile(r"(20\d{2})\s*[./\uff0f-]\s*(\d{1,2})\s*[./\uff0f-]\s*(\d{1,2})")
+TRACK_RE = re.compile(r"^\s*(?:0?\d{1,2}\s*[.\uff0e)]\s*|[\u30fb\u2022\u00b7*-]\s*)(?P<t>\S.*?)\s*$")
 
-def parse_discography_detail(html: str, url: str) -> dict | None:
-    text = clean_text(html)
-    # Heading/label patterns seen on aespa Japan official pages.
-    kind = "Album"
-    for candidate in ("Digital Single", "Single", "Japan 1st Mini Album", "1st Japanese Mini Album", "Mini Album", "Full Album"):
-        if candidate.lower() in text.lower():
-            kind = candidate
+
+def clean_line(value: str) -> str:
+    """One line of page text -> plain text (handles entities, Markdown links/escapes)."""
+    value = unescape(value)
+    value = re.sub(r"\\([\\`*_{}\[\]()#+.!-])", r"\1", value)
+    value = re.sub(r"!\[[^\]]*\]\([^)]*\)", "", value)
+    value = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", value)
+    value = value.replace("\u00a0", " ")
+    value = re.sub(r"\s+", " ", value).strip()
+    return value.strip("*_` ").strip()
+
+
+def page_lines(content: str, url: str) -> tuple[list[str], list[str], str]:
+    """Turn an HTML page or a Jina Markdown page into (text lines, image urls, page title).
+
+    Every tag boundary becomes a line break, so the date, the tracklist and the
+    footer can never be glued together into one giant string.
+    """
+    looks_html = bool(re.search(r"<\s*(?:html|body|div|h[1-6]|p|ul|li)\b", content, re.I))
+    if looks_html:
+        images: list[str] = []
+        for tag in re.findall(r"<img\b[^>]*>", content, re.I | re.S):
+            for src in re.findall(r"""(?:data-src|data-lazy-src|data-original|src)\s*=\s*["']([^"']+)["']""", tag, re.I):
+                images.append(urljoin(url, unescape(src)))
+        tm = re.search(r"<title[^>]*>(.*?)</title>", content, re.I | re.S)
+        page_title = clean_line(re.sub(r"<[^>]+>", "", tm.group(1))) if tm else ""
+        body = re.sub(r"<(script|style|noscript|head)\b[\s\S]*?</\1\s*>", "\n", content, flags=re.I)
+        body = re.sub(r"<[^>]+>", "\n", body)
+        raw_lines = body.splitlines()
+    else:
+        images = [urljoin(url, u) for u in re.findall(r"!\[[^\]]*\]\(([^)\s]+)", content)]
+        tm = re.search(r"^\s*title:\s*(.+)$", content, re.I | re.M)
+        page_title = clean_line(tm.group(1)) if tm else ""
+        body = re.sub(r"\A---\s*\n.*?\n---\s*\n", "", content, flags=re.S)
+        raw_lines = body.splitlines()
+    lines = [clean_line(x) for x in raw_lines]
+    return [x for x in lines if x], images, page_title
+
+
+def clean_track(value: str) -> str:
+    """Clean one tracklist entry: no Japanese TV/drama notes, no pipes, no odd apostrophes."""
+    t = value.replace("\u2019", "'").replace("|", " \u2014 ")
+    while True:
+        new = re.sub(
+            r"\s*[（(][^（()）]*[）)]\s*$",
+            lambda m: "" if JP_CHARS.search(m.group(0)) else m.group(0),
+            t,
+        )
+        if new == t:
             break
-    title = None
-    m = re.search(r"##\s+([^\n]+)", text)
-    if m:
-        title = m.group(1).strip()
-    if not title:
-        m = re.search(r"\b(?:Digital Single|Full Album|Mini Album|Japan 1st Mini Album)\b\s+([^\n]+)", text, re.I)
-        if m:
-            title = m.group(1).strip()
-    if not title:
-        # fallback from page slug
-        slug = url.rstrip("/").rsplit("/", 1)[-1]
-        title = slug.replace("-", " ").title()
-    date = None
-    m = re.search(r"20\d{2}\.\d{1,2}\.\d{1,2}", text)
-    if m:
-        y, mo, da = map(int, m.group(0).split("."))
-        date = f"{y:04d}-{mo:02d}-{da:02d}"
-    if not date:
-        m = re.search(r"20\d{2}/\d{1,2}/\d{1,2}", text)
-        if m:
-            y, mo, da = map(int, m.group(0).split("/"))
-            date = f"{y:04d}-{mo:02d}-{da:02d}"
-    if not date or not title:
-        return None
-    year = int(date[:4])
+        t = new
+    t = re.sub(r"\s+", " ", t).strip()
+    return t if 0 < len(t) <= 90 else ""
 
-    # Artwork: HTML image first; Jina Markdown image fallback second.
+
+def normalize_kind(kind: str) -> str:
+    """'Japan 1st Mini Album' -> '1st Japanese mini album' (the site's own wording)."""
+    k = kind.strip()
+    m = re.match(r"(?i)^japan(?:ese)?\s+(\d+(?:st|nd|rd|th))\s+(.*)$", k)
+    if m:
+        return f"{m.group(1)} Japanese {m.group(2).lower()}"
+    return k
+
+
+def _heading_fallback(content: str) -> str:
+    m = re.search(r"(?m)^###\s+(.+)$", content)
+    if m:
+        return clean_line(m.group(1))
+    m = re.search(r"<h3[^>]*>(.*?)</h3>", content, re.I | re.S)
+    if m:
+        return clean_line(re.sub(r"<[^>]+>", "", m.group(1)))
+    return ""
+
+
+def parse_discography_index(content: str) -> list[dict]:
+    """Return [{url, text, section}] for every release link on the discography page.
+
+    `section` is the heading above the link (ALBUM / SINGLE / Blu-ray / DVD).
+    """
+    events: list[tuple[int, str, object]] = []
+    for m in re.finditer(r"(?m)^#{3,5}\s*(.+?)\s*$", content):
+        events.append((m.start(), "h", clean_line(m.group(1))))
+    for m in re.finditer(r"<h[3-6][^>]*>(.*?)</h[3-6]>", content, re.I | re.S):
+        events.append((m.start(), "h", clean_text(m.group(1))))
+    for m in re.finditer(r"\[([^\]\n]{1,200})\]\((https://aespa-official\.jp/discography/[^)\s]+)\)", content):
+        events.append((m.start(), "l", (clean_line(m.group(1)), m.group(2))))
+    for m in re.finditer(r'<a\b[^>]*href=["\']([^"\']+)["\'][^>]*>(.*?)</a>', content, re.I | re.S):
+        events.append((m.start(), "l", (clean_text(m.group(2)), urljoin(SOURCES["jp_discography"], m.group(1)))))
+    events.sort(key=lambda e: e[0])
+
+    out, seen = [], set()
+    section = ""
+    for _pos, kind, payload in events:
+        if kind == "h":
+            section = str(payload)
+            continue
+        text, href = payload  # type: ignore[misc]
+        if not re.match(r"^https://aespa-official\.jp/discography/[^/?#]+/?$", href):
+            continue
+        if href in seen:
+            continue
+        seen.add(href)
+        out.append({"url": href, "text": text, "section": section})
+    return out
+
+
+def parse_discography_detail(content: str, url: str, section: str = "") -> dict | None:
+    lines, images, page_title = page_lines(content, url)
+
+    # --- title: the page <title> ("Dreams Come True | aespa ..."), never a text blob
+    title = re.split(r"\s*[|\uff5c]\s*", page_title)[0].strip() if page_title else ""
+    if not title or title.lower() == "discography":
+        title = _heading_fallback(content)
+    if not title:
+        title = url.rstrip("/").rsplit("/", 1)[-1].replace("-", " ").title()
+    title = title.replace("\u2019", "'").strip()
+
+    # --- release date: first short line that looks like a date
+    date_idx, date_iso = None, None
+    for i, ln in enumerate(lines):
+        if len(ln) > 40:
+            continue
+        m = DATE_RE.search(ln)
+        if not m:
+            continue
+        try:
+            date_iso = datetime(int(m.group(1)), int(m.group(2)), int(m.group(3))).strftime("%Y-%m-%d")
+        except ValueError:
+            continue
+        date_idx = i
+        break
+    if date_idx is None or not date_iso:
+        return None
+
+    # --- release type: closest short "…Single"/"…Album" line above the date
+    kind = ""
+    for ln in reversed(lines[max(0, date_idx - 6):date_idx]):
+        low = ln.lower()
+        if (
+            len(ln) <= 40
+            and re.search(r"single|album|\bep\b", low)
+            and "discography" not in low
+            and title_key(ln) != title_key(title)
+        ):
+            kind = ln
+            break
+    if not kind:
+        kind = "Single" if "single" in section.lower() else "Album"
+    kind = normalize_kind(kind)
+
+    # --- tracklist: consecutive numbered/bulleted lines right after the date
+    tracks: list[str] = []
+    for ln in lines[date_idx + 1:]:
+        low = ln.lower()
+        if low.startswith(("back", "copyright")) or ln.startswith("\u00a9"):
+            break
+        m = TRACK_RE.match(ln)
+        if m:
+            t = clean_track(m.group("t"))
+            if t:
+                tracks.append(t)
+        elif tracks:
+            break
+    tracks = list(dict.fromkeys(tracks))
+
+    # --- cover: only real uploads, never the header icons (LINE, X, ...)
     artwork = ""
-    for im in re.finditer(r'<img\b[^>]*src=["\']([^"\']+)["\']', html, re.I | re.S):
-        src = urljoin(url, im.group(1))
-        if "aespa-official.jp" in src and src.lower().endswith((".webp", ".jpg", ".jpeg", ".png")):
+    for src in images:
+        path = src.split("?")[0].lower()
+        if "/wp-content/uploads/" in path and path.endswith((".webp", ".jpg", ".jpeg", ".png")):
             artwork = src
             break
-    if not artwork:
-        for im in re.finditer(r'!\[[^\]]*\]\((https://aespa-official\.jp/[^)]+)\)', html, re.I):
-            src = im.group(1)
-            if src.lower().split("?")[0].endswith((".webp", ".jpg", ".jpeg", ".png")):
-                artwork = src
-                break
 
-    tracks = []
-    for m in re.finditer(r"(?:^|\s)(?:0?\d)\.\s*([^\n]+)", text):
-        t = m.group(1).strip()
-        if 1 < len(t) < 120 and not any(x in t.lower() for x in ("price", "release", "image", "tracklist")):
-            tracks.append(t)
-    # Deduplicate and trim to plausible tracklist entries.
-    seen = set()
-    clean_tracks = []
-    for t in tracks:
-        t = re.sub(r"\s+", " ", t)
-        if t not in seen:
-            seen.add(t)
-            clean_tracks.append(t)
-    return {"title": title, "year": year, "date": date, "kind": kind, "artwork": artwork, "tracks": clean_tracks, "url": url}
+    return {
+        "title": title,
+        "year": int(date_iso[:4]),
+        "date": date_iso,
+        "kind": kind,
+        "artwork": artwork,
+        "tracks": tracks,
+        "url": url,
+        "section": section,
+    }
+
+
+def release_problem(rel: dict) -> str | None:
+    """Sanity checks. Returns why a parsed release must NOT be added, or None if it is fine."""
+    title = rel.get("title", "")
+    if not title or len(title) > 80:
+        return "title empty or too long"
+    if BOILERPLATE.search(title) or "\n" in title:
+        return "title contains page boilerplate (copyright, link...)"
+    if title_key(title) in {"", "discography"}:
+        return "title is not a release name"
+    if not rel.get("date"):
+        return "no release date"
+    tracks = rel.get("tracks") or []
+    if not tracks:
+        return "no tracklist found"
+    if len(tracks) > 40:
+        return "implausible number of tracks"
+    if any(BOILERPLATE.search(t) or len(t) > 90 for t in tracks):
+        return "a track contains page boilerplate"
+    return None
+
+
+def known_music_keys(html: str) -> set[str]:
+    """Normalised keys of every title already present in the site's Music data.
+
+    Covers releases, tracks, English versions, OST / collab lists, etc.: any quoted
+    string of the Music script (from `var S=[];` to the end of that <script>).
+    """
+    start = html.find("var S=[];")
+    if start < 0:
+        start = 0
+    end = html.find("</script>", start)
+    region = html[start:end if end > 0 else len(html)]
+    keys: set[str] = set()
+    for m in re.finditer(r'"((?:\\.|[^"\\])*)"', region):
+        raw = m.group(1)
+        try:
+            s = json.loads('"' + raw + '"')
+        except json.JSONDecodeError:
+            s = raw
+        k = title_key(s.split("|")[0])
+        if len(k) >= 2:
+            keys.add(k)
+    return keys
+
+
+def fetch_jp_detail(url: str) -> tuple[str, str]:
+    """Fetch an aespa Japan detail page directly, then through Jina if needed."""
+    try:
+        return fetch(url, attempts=1, timeout=20), "direct"
+    except Exception as direct_error:
+        try:
+            return fetch_via_jina(url, timeout=50), "jina"
+        except Exception:
+            raise direct_error
+
+
+def discover_release_details(index_content: str, known: set[str]) -> tuple[list[dict], list[dict]]:
+    """Fetch the detail page of every release that is not already on the site.
+
+    Releases whose link text is already known are skipped without any request,
+    which also keeps the daily run short.
+    """
+    releases: list[dict] = []
+    errors: list[dict] = []
+    for entry in parse_discography_index(index_content):
+        if re.search(r"blu|dvd", entry["section"], re.I):
+            continue  # video releases have no tracklist for the Music section
+        if entry["text"] and title_key(entry["text"]) in known:
+            continue
+        try:
+            page, _mode = fetch_jp_detail(entry["url"])
+            rel = parse_discography_detail(page, entry["url"], entry["section"])
+        except Exception as exc:
+            errors.append({"source": entry["url"], "error": str(exc)})
+            continue
+        if rel:
+            releases.append(rel)
+        else:
+            errors.append({"source": entry["url"], "error": "could not parse release page"})
+    return releases, errors
+
+
+def select_new_music(
+    html: str,
+    releases: list[dict],
+    max_age_days: int = MUSIC_MAX_AGE_DAYS,
+    today: date | None = None,
+) -> tuple[list[dict], list[dict]]:
+    """Split parsed releases into (to add, skipped-with-reason)."""
+    today = today or datetime.now(timezone.utc).date()
+    known = known_music_keys(html)
+    new: list[dict] = []
+    skipped: list[dict] = []
+    for rel in releases:
+        title = str(rel.get("title", ""))
+        problem = release_problem(rel)
+        if problem:
+            skipped.append({"title": title[:80], "reason": problem})
+            continue
+        tkey = title_key(title)
+        track_keys = [title_key(t) for t in rel["tracks"]]
+        if tkey in known or all(k in known for k in track_keys if k):
+            skipped.append({"title": title, "reason": "already on the site"})
+            continue
+        if max_age_days:
+            age = (today - date.fromisoformat(rel["date"])).days
+            if age > max_age_days:
+                skipped.append({"title": title, "reason": f"released {age} days ago (limit {max_age_days}); use --music-max-age-days 0 to backfill"})
+                continue
+        new.append(rel)
+        known.add(tkey)
+        known.update(k for k in track_keys if k)
+    return new, skipped
 
 
 def itunes_duration(track: str) -> str | None:
     url = "https://itunes.apple.com/search?term=" + quote(f"aespa {track}") + "&entity=song&limit=8&country=US"
     try:
-        payload = json.loads(fetch(url, accept="application/json,text/plain,*/*"))
+        payload = json.loads(fetch(url, accept="application/json,text/plain,*/*", attempts=2, timeout=20))
     except Exception:
         return None
     best = None
@@ -460,6 +720,7 @@ def itunes_duration(track: str) -> str | None:
 
 
 def update_music(html: str, releases: list[dict]) -> tuple[str, int]:
+    """Insert already-validated, already-deduplicated releases (see select_new_music)."""
     if not releases:
         return html, 0
     # Script 1 contains the Music data. Insert new A(...) lines before 'var X=['.
@@ -468,53 +729,42 @@ def update_music(html: str, releases: list[dict]) -> tuple[str, int]:
     if pos < 0:
         raise RuntimeError("Music insertion point not found")
 
-    existing_rel = set(re.findall(r'A\("([^"]+)"', html[:pos]))
     art_entries = []
     dur_entries = []
     additions = []
 
     for rel in releases:
         title = rel["title"]
-        if title in existing_rel:
-            continue
-        if not rel["tracks"]:
-            continue
-        lang = "Japanese" if "japan" in rel["kind"].lower() or "japanese" in rel["kind"].lower() else "Korean"
         kind = rel["kind"]
+        lang = "Japanese" if "japan" in kind.lower() else "Korean"
         arr = []
         for track in rel["tracks"]:
-            # The site's A() parser uses | as note separator, so escape by omitting pipe characters.
-            track = track.replace("|", " — ")
+            # The site's A() parser uses | as note separator, so pipes are removed upstream.
             arr.append(track)
             dur = itunes_duration(track)
             if dur:
                 dur_entries.append((track, dur))
-        js_arr = ",".join(json.dumps(x, ensure_ascii=False) for x in arr)
-        additions.append(f'A({json.dumps(title, ensure_ascii=False)},{rel["year"]},{json.dumps(kind, ensure_ascii=False)},{json.dumps(lang)}/Korean/,{""})')
-        # Replace the malformed helper line with a concrete helper call below.
-        additions[-1] = f'A({json.dumps(title, ensure_ascii=False)},{rel["year"]},{json.dumps(kind, ensure_ascii=False)},{json.dumps(lang)},{json.dumps(arr, ensure_ascii=False)})'
+        additions.append(
+            f'A({json.dumps(title, ensure_ascii=False)},{rel["year"]},'
+            f'{json.dumps(kind, ensure_ascii=False)},{json.dumps(lang)},'
+            f'{json.dumps(arr, ensure_ascii=False)});'
+        )
         if rel.get("artwork"):
             art_entries.append((title, rel["artwork"]))
-        existing_rel.add(title)
 
-    if not additions and not art_entries and not dur_entries:
-        return html, 0
-
-    # We need real JS calls. Convert additions to valid source lines.
-    insertion = "\n".join(additions) + "\n" if additions else ""
-    html = html[:pos] + insertion + html[pos:]
+    html = html[:pos] + "\n".join(additions) + "\n" + html[pos:]
 
     # Update RELEASE_ART object.
     m = re.search(r"var RELEASE_ART=\{(.*?)\};", html, re.S)
     if art_entries and m:
         body = m.group(1).rstrip()
-        for rel, art in art_entries:
-            if re.search(r'"' + re.escape(rel) + r'"\s*:', body):
-                body = re.sub(r'"' + re.escape(rel) + r'"\s*:\s*"[^"]*"', json.dumps(rel, ensure_ascii=False) + ":" + json.dumps(art, ensure_ascii=False), body)
+        for rel_name, art in art_entries:
+            if re.search(r'"' + re.escape(rel_name) + r'"\s*:', body):
+                body = re.sub(r'"' + re.escape(rel_name) + r'"\s*:\s*"[^"]*"', lambda _m: json.dumps(rel_name, ensure_ascii=False) + ":" + json.dumps(art, ensure_ascii=False), body)
             else:
                 if body and not body.rstrip().endswith(","):
                     body += ","
-                body += "\n " + json.dumps(rel, ensure_ascii=False) + ":" + json.dumps(art, ensure_ascii=False)
+                body += "\n " + json.dumps(rel_name, ensure_ascii=False) + ":" + json.dumps(art, ensure_ascii=False)
         html = html[:m.start(1)] + body + html[m.end(1):]
 
     # Update STATIC_DURATIONS object.
@@ -523,11 +773,10 @@ def update_music(html: str, releases: list[dict]) -> tuple[str, int]:
         body = m.group(1).rstrip()
         for track, dur in dur_entries:
             if re.search(r'"' + re.escape(track) + r'"\s*:', body):
-                body = re.sub(r'"' + re.escape(track) + r'"\s*:\s*"[^"]*"', json.dumps(track, ensure_ascii=False) + ":" + json.dumps(dur), body)
-            else:
-                if body and not body.rstrip().endswith(","):
-                    body += ","
-                body += "\n" + json.dumps(track, ensure_ascii=False) + ":" + json.dumps(dur)
+                continue  # never overwrite a duration that is already on the site
+            if body and not body.rstrip().endswith(","):
+                body += ","
+            body += "\n" + json.dumps(track, ensure_ascii=False) + ":" + json.dumps(dur)
         html = html[:m.start(1)] + body + html[m.end(1):]
 
     return html, len(additions)
@@ -559,14 +808,14 @@ def parse_weverse_tour(html: str) -> list[dict]:
                         dt = None
                 if not dt:
                     continue
-                date = dt.strftime("%Y-%m-%d")
+                date_ = dt.strftime("%Y-%m-%d")
             except Exception:
                 continue
-            key = (date, norm(city))
+            key = (date_, norm(city))
             if key in seen or len(city) < 3:
                 continue
             seen.add(key)
-            out.append({"date": date, "title": f"SYNK : COMPLæXITY — {city}", "desc": "Official tour date from Weverse.", "source_key": "wv"})
+            out.append({"date": date_, "title": f"SYNK : COMPLæXITY — {city}", "desc": "Official tour date from Weverse.", "source_key": "wv"})
     return out
 
 
@@ -582,7 +831,7 @@ def parse_jp_schedule(content: str) -> list[dict]:
     for m in date_matches:
         raw = m.group(0).replace("/", ".")
         y, mo, da = map(int, raw.split("."))
-        date = f"{y:04d}-{mo:02d}-{da:02d}"
+        date_ = f"{y:04d}-{mo:02d}-{da:02d}"
         window = text[max(0, m.start()-180):min(len(text), m.end()+260)]
         # Pick a concise title from nearby text, removing the raw date.
         title = re.sub(r"20\d{2}[./]\d{1,2}[./]\d{1,2}", "", window)
@@ -594,12 +843,12 @@ def parse_jp_schedule(content: str) -> list[dict]:
             continue
         # Cap to a usable title.
         title = title[:160]
-        key = (date, norm(title))
+        key = (date_, norm(title))
         if key in seen:
             continue
         seen.add(key)
         out.append({
-            "date": date,
+            "date": date_,
             "title": title,
             "desc": "Official schedule entry from aespa Japan.",
             "source_key": "aj",
@@ -758,34 +1007,15 @@ def update_awards(html: str, awards: list[dict]) -> tuple[str, int]:
 # MAIN
 # ---------------------------------------------------------------------------
 
-def fetch_jp_detail(url: str) -> tuple[str, str]:
-    """Fetch an aespa Japan detail page directly, then through Jina if needed."""
-    try:
-        return fetch(url, attempts=1, timeout=20), "direct"
-    except Exception as direct_error:
-        try:
-            return fetch_via_jina(url, timeout=50), "jina"
-        except Exception:
-            raise direct_error
-
-
-def discover_release_details(index_html: str) -> list[dict]:
-    links = parse_discography_index(index_html)
-    out = []
-    for link in links:
-        try:
-            detail_html, _mode = fetch_jp_detail(link)
-            detail = parse_discography_detail(detail_html, link)
-            if detail:
-                out.append(detail)
-        except Exception:
-            continue
-    return out
-
-
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--dry-run", action="store_true", help="Only report candidates; do not modify index.html")
+    parser.add_argument(
+        "--music-max-age-days",
+        type=int,
+        default=MUSIC_MAX_AGE_DAYS,
+        help="Ignore music releases older than N days (default %(default)s; 0 = no limit, to backfill once)",
+    )
     args = parser.parse_args()
 
     if not HTML_FILE.exists():
@@ -799,6 +1029,8 @@ def main() -> None:
         "source_status": {},
         "errors": [],
         "candidates": {},
+        "skipped": {},
+        "added_titles": {},
         "applied": {},
     }
 
@@ -831,11 +1063,18 @@ def main() -> None:
         n = 0
     report["applied"]["mvs_added"] = n
 
-    # Music
-    releases = discover_release_details(raw["jp_discography"]) if "jp_discography" in raw else []
-    report["candidates"]["music_releases"] = len(releases)
-    if not args.dry_run and releases:
-        html, n = update_music(html, releases)
+    # Music: only releases that are really new, validated, with a clean title.
+    new_music: list[dict] = []
+    if "jp_discography" in raw:
+        known = known_music_keys(html)
+        releases, disc_errors = discover_release_details(raw["jp_discography"], known)
+        report["errors"].extend(disc_errors)
+        new_music, skipped_music = select_new_music(html, releases, args.music_max_age_days)
+        report["skipped"]["music"] = skipped_music
+    report["candidates"]["music_releases"] = len(new_music)
+    if not args.dry_run and new_music:
+        html, n = update_music(html, new_music)
+        report["added_titles"]["music"] = [r["title"] for r in new_music]
     else:
         n = 0
     report["applied"]["music_releases_added"] = n
