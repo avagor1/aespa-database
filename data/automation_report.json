@@ -1,45 +1,32 @@
 {
-  "checked_at": "2026-09-24T21:14:12.180991+00:00",
-  "sources_ok": 4,
+  "checked_at": "2026-09-24T21:55:30.894048+00:00",
+  "sources_ok": 7,
   "sources_total": 7,
   "source_status": {
-    "jp_news": "error",
-    "jp_discography": "error",
-    "jp_schedule": "error",
+    "jp_news": "ok",
+    "jp_discography": "ok",
+    "jp_schedule": "ok",
     "weverse": "ok",
     "weverse_shop": "ok",
     "youtube_feed": "ok",
     "awards_wiki_raw": "ok"
   },
-  "errors": [
-    {
-      "source": "jp_news",
-      "error": "Fetch failed after 3 attempts: https://aespa-official.jp/news/: <urlopen error timed out>"
-    },
-    {
-      "source": "jp_discography",
-      "error": "Fetch failed after 3 attempts: https://aespa-official.jp/discography/: <urlopen error timed out>"
-    },
-    {
-      "source": "jp_schedule",
-      "error": "Fetch failed after 3 attempts: https://aespa-official.jp/schedule/: <urlopen error timed out>"
-    }
-  ],
+  "errors": [],
   "candidates": {
-    "news": 0,
+    "news": 20,
     "mvs": 0,
-    "music_releases": 0,
+    "music_releases": 22,
     "calendar": 0,
-    "fashion": 0,
+    "fashion": 2,
     "awards": 0
   },
   "applied": {
-    "news_added": 0,
+    "news_added": 20,
     "mvs_added": 0,
-    "music_releases_added": 0,
+    "music_releases_added": 4,
     "calendar_events_added": 0,
-    "fashion_entries_added": 0,
+    "fashion_entries_added": 2,
     "awards_entries_added": 0,
-    "index_updated": false
+    "index_updated": true
   }
 }
