@@ -1,23 +1,28 @@
 {
-  "checked_at": "2026-09-24T21:05:14.760072+00:00",
-  "sources_ok": 3,
+  "checked_at": "2026-09-24T21:14:12.180991+00:00",
+  "sources_ok": 4,
   "sources_total": 7,
+  "source_status": {
+    "jp_news": "error",
+    "jp_discography": "error",
+    "jp_schedule": "error",
+    "weverse": "ok",
+    "weverse_shop": "ok",
+    "youtube_feed": "ok",
+    "awards_wiki_raw": "ok"
+  },
   "errors": [
     {
       "source": "jp_news",
-      "error": "Fetch failed: https://aespa-official.jp/news/: <urlopen error timed out>"
+      "error": "Fetch failed after 3 attempts: https://aespa-official.jp/news/: <urlopen error timed out>"
     },
     {
       "source": "jp_discography",
-      "error": "Fetch failed: https://aespa-official.jp/discography/: <urlopen error timed out>"
+      "error": "Fetch failed after 3 attempts: https://aespa-official.jp/discography/: <urlopen error timed out>"
     },
     {
       "source": "jp_schedule",
-      "error": "Fetch failed: https://aespa-official.jp/schedule/: <urlopen error timed out>"
-    },
-    {
-      "source": "awards_wiki_api",
-      "error": "Fetch failed: https://en.wikipedia.org/w/api.php?action=parse&page=List_of_awards_and_nominations_received_by_Aespa&prop=wikitext&format=json: HTTP Error 429: Too Many Requests"
+      "error": "Fetch failed after 3 attempts: https://aespa-official.jp/schedule/: <urlopen error timed out>"
     }
   ],
   "candidates": {
