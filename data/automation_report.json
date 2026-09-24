@@ -1,22 +1,17 @@
 {
-  "checked_at": "2026-09-24T22:24:36.049722+00:00",
+  "checked_at": "2026-09-24T22:27:34.076758+00:00",
   "sources_ok": 7,
   "sources_total": 7,
   "source_status": {
-    "jp_news": "ok",
-    "jp_discography": "ok",
-    "jp_schedule": "ok",
+    "jp_news": "ok_via_jina",
+    "jp_discography": "ok_via_jina",
+    "jp_schedule": "ok_via_jina",
     "weverse": "ok",
     "weverse_shop": "ok",
     "youtube_feed": "ok",
     "awards_wiki_raw": "ok"
   },
-  "errors": [
-    {
-      "source": "fashion_update",
-      "error": "Could not parse the JavaScript source map (0 malformed entries skipped, 2939 chars)."
-    }
-  ],
+  "errors": [],
   "candidates": {
     "news": 20,
     "mvs": 0,
@@ -26,20 +21,7 @@
     "awards": 0
   },
   "skipped": {
-    "music": [
-      {
-        "title": "ZOOM ZOOM",
-        "reason": "released 1084 days ago (limit 120); use --music-max-age-days 0 to backfill"
-      },
-      {
-        "title": "Dreams Come True",
-        "reason": "released 1739 days ago (limit 120); use --music-max-age-days 0 to backfill"
-      },
-      {
-        "title": "aespa LIVE TOUR 2023 ‘SYNK : HYPER LINE' in JAPAN -Special Edition-",
-        "reason": "released 1002 days ago (limit 120); use --music-max-age-days 0 to backfill"
-      }
-    ]
+    "music": []
   },
   "added_titles": {},
   "applied": {
