@@ -1,10 +1,10 @@
 name: Daily aespa database check
 
 on:
+  workflow_dispatch:
   schedule:
     - cron: "17 6 * * *"
       timezone: "Europe/Paris"
-  workflow_dispatch:
 
 permissions:
   contents: write
@@ -17,8 +17,8 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Run daily updater
-        run: python scripts/update_site.py --apply
+      - name: Run updater
+        run: python scripts/update_site.py
 
       - name: Commit changes
         run: |
