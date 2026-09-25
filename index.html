@@ -70,7 +70,7 @@ footer .disp{font-size:18px;color:var(--ink);margin-bottom:10px}
 #stage.glitch{animation:gl .12s steps(2) 6;text-shadow:2px 0 var(--pink),-2px 0 var(--cyan)}
 @keyframes gl{50%{transform:translate(4px,-2px) skewX(6deg)}}
 #intro .btn{margin-top:26px}
-@media(max-width:700px){.disc{grid-template-columns:1fr}nav a{padding:6px 8px;font-size:13px}section{padding:60px 5vw}#intro{background-position:center center}}
+@media(max-width:700px){.disc{grid-template-columns:1fr}nav a{padding:6px 8px;font-size:13px}section{padding:60px 5vw}#intro{background-position:center center}header{transition:transform .3s ease}header.nav-hidden{transform:translateY(-100%)}}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;scroll-behavior:auto!important}}
 .filters{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:22px}
 .filters label{font-size:13px;color:var(--dim);display:flex;flex-direction:column;gap:4px}
@@ -1213,6 +1213,43 @@ draw();
   });
 
   render();
+})();
+</script>
+<script>
+/* Mobile nav: visible only at the very top of the page. Hides as soon as the
+   user scrolls down, and only reappears once they scroll back to the top
+   (not on every upward scroll). Desktop keeps the header always visible. */
+(function(){
+  var header = document.querySelector("header");
+  if (!header) return;
+  var isMobile = window.matchMedia("(max-width:700px)");
+  var atTopThreshold = 8;
+
+  function update(){
+    if (!isMobile.matches){
+      header.classList.remove("nav-hidden");
+      return;
+    }
+    if (window.scrollY <= atTopThreshold){
+      header.classList.remove("nav-hidden");
+    } else {
+      header.classList.add("nav-hidden");
+    }
+  }
+
+  var ticking = false;
+  window.addEventListener("scroll", function(){
+    if (!ticking){
+      window.requestAnimationFrame(function(){ update(); ticking = false; });
+      ticking = true;
+    }
+  }, {passive:true});
+
+  if (isMobile.addEventListener) isMobile.addEventListener("change", update);
+  else if (isMobile.addListener) isMobile.addListener(update);
+  window.addEventListener("resize", update);
+
+  update();
 })();
 </script>
 </body>
