@@ -26,6 +26,7 @@ nav a:hover,nav a:focus-visible{color:var(--ink);background:var(--panel);outline
 section{padding:90px 5vw;max-width:1180px;margin:0 auto}
 .hero{min-height:88vh;display:flex;flex-direction:column;justify-content:center;align-items:flex-start;gap:24px}
 .hero h1{font-size:clamp(56px,15vw,190px);font-weight:900;letter-spacing:-.03em;background:var(--holo);background-size:200% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:sheen 8s linear infinite}
+.hero-logo-wrap{display:flex;align-items:center;margin:0}.hero-logo{display:block;width:auto;height:clamp(56px,15vw,190px);max-width:min(90vw,520px);filter:invert(1) drop-shadow(0 0 24px rgba(155,92,255,.28));object-fit:contain}
 @keyframes sheen{to{background-position:200% 0}}
 .hero p{max-width:46ch;color:var(--dim);font-size:18px;margin:0}
 .btns{display:flex;gap:12px;flex-wrap:wrap}
@@ -265,7 +266,7 @@ dialog a{color:var(--cyan)}
 <nav><a href="#home">Home</a><a href="#members">Members</a><a href="#compare">Compare</a><a href="#search">Search</a><a href="#music">Music</a><a href="#mvs">MVs</a><a href="#lore">Lore</a><a href="#timeline">Timeline</a><a href="#eras">Eras</a><a href="#achievements">Achievements</a><a href="#fashion">Fashion</a><a href="#calendar">Calendar</a><a href="#news">News</a><a href="#community">Community</a><a href="#games">Games</a><a href="#accounts">Accounts</a><a href="#about">About</a></nav></header>
 <main>
 <section class="hero" id="home">
-<h1>æspa</h1>
+<h1 class="hero-logo-wrap"><img class="hero-logo" src="https://upload.wikimedia.org/wikipedia/commons/c/c0/Logo_of_Aespa_%28black%29.svg" alt="aespa" /></h1>
 <p>An unofficial fan portal for MYs. Meet the four members, explore the discography, and step into KWANGYA.</p>
 <div class="btns"><a class="btn main" href="#members">ENTER KWANGYA</a><a class="btn" href="#music">EXPLORE AESPA</a></div>
 </section>
