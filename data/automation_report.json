@@ -1,5 +1,5 @@
 {
-  "checked_at": "2026-09-25T09:37:39.798010+00:00",
+  "checked_at": "2026-09-26T09:22:00.950055+00:00",
   "sources_ok": 7,
   "sources_total": 7,
   "source_status": {
@@ -23,16 +23,8 @@
   "skipped": {
     "music": [
       {
-        "title": "ZOOM ZOOM",
-        "reason": "released 1085 days ago (limit 120); use --music-max-age-days 0 to backfill"
-      },
-      {
-        "title": "Dreams Come True",
-        "reason": "released 1740 days ago (limit 120); use --music-max-age-days 0 to backfill"
-      },
-      {
         "title": "aespa LIVE TOUR 2023 ‘SYNK : HYPER LINE' in JAPAN -Special Edition-",
-        "reason": "released 1003 days ago (limit 120); use --music-max-age-days 0 to backfill"
+        "reason": "released 1004 days ago (limit 120); use --music-max-age-days 0 to backfill"
       }
     ]
   },
