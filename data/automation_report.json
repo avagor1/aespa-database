@@ -1,5 +1,5 @@
 {
-  "checked_at": "2026-10-30T11:25:14.977161+00:00",
+  "checked_at": "2026-10-31T10:56:04.843125+00:00",
   "sources_ok": 7,
   "sources_total": 7,
   "source_status": {
@@ -11,10 +11,15 @@
     "youtube_feed": "ok",
     "awards_wiki_raw": "ok"
   },
-  "errors": [],
+  "errors": [
+    {
+      "source": "mvs_update",
+      "error": "MV array not found"
+    }
+  ],
   "candidates": {
     "news": 20,
-    "mvs": 0,
+    "mvs": 1,
     "music_releases": 0,
     "calendar": 0,
     "fashion": 2,
@@ -24,7 +29,7 @@
     "music": [
       {
         "title": "aespa LIVE TOUR 2023 ‘SYNK : HYPER LINE' in JAPAN -Special Edition-",
-        "reason": "released 1038 days ago (limit 120); use --music-max-age-days 0 to backfill"
+        "reason": "released 1039 days ago (limit 120); use --music-max-age-days 0 to backfill"
       }
     ]
   },
