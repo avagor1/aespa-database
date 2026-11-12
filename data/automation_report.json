@@ -1,5 +1,5 @@
 {
-  "checked_at": "2026-11-11T12:44:34.406194+00:00",
+  "checked_at": "2026-11-12T13:47:20.475270+00:00",
   "sources_ok": 7,
   "sources_total": 7,
   "source_status": {
@@ -29,7 +29,7 @@
     "music": [
       {
         "title": "aespa LIVE TOUR 2023 ‘SYNK : HYPER LINE' in JAPAN -Special Edition-",
-        "reason": "released 1050 days ago (limit 120); use --music-max-age-days 0 to backfill"
+        "reason": "released 1051 days ago (limit 120); use --music-max-age-days 0 to backfill"
       }
     ]
   },
